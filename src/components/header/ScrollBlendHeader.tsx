@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { ReactNode, ReactElement } from 'react';
+import { View, StyleSheet, useWindowDimensions, RefreshControlProps } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -40,6 +40,7 @@ export function ScrollBlendScreen({
   hero,
   heroHeight = 380,
   headerRight,
+  refreshControl,
   children,
 }: {
   /** Compact sticky title that solidifies on scroll. */
@@ -50,6 +51,8 @@ export function ScrollBlendScreen({
   hero: ReactNode;
   heroHeight?: number;
   headerRight?: ReactNode;
+  /** Optional RefreshControl element for pull-to-refresh. */
+  refreshControl?: ReactElement<RefreshControlProps>;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -129,6 +132,7 @@ export function ScrollBlendScreen({
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 140 }}
+        refreshControl={refreshControl}
       >
         <Animated.View style={[{ height: heroHeight, width }, heroStyle]}>{hero}</Animated.View>
         <View style={styles.body}>{children}</View>

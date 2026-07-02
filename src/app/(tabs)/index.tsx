@@ -1,139 +1,180 @@
-import { View, StyleSheet, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useCallback, useState } from 'react';
+import { View, StyleSheet, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { ScrollBlendScreen } from '@/components/header/ScrollBlendHeader';
+import { HeroCarousel } from '@/components/home/HeroCarousel';
 import { Text } from '@/components/ui/Text';
-import { Eyebrow } from '@/components/ui/Eyebrow';
-import { GenreChip } from '@/components/ui/GenreChip';
-import { FilterPill } from '@/components/ui/FilterPill';
-import { ContentCard } from '@/components/ui/ContentCard';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { Badge } from '@/components/ui/Badge';
-import { colors, genreColor, radius } from '@/theme/tokens';
-import { useState } from 'react';
+import { ContentCard } from '@/components/ui/ContentCard';
+import { PosterCard } from '@/components/ui/PosterCard';
+import { Skeleton, SkeletonRail, SkeletonCard } from '@/components/ui/Skeleton';
+import { colors } from '@/theme/tokens';
+import {
+  useTrending,
+  usePopularThisSeason,
+  useTopRated,
+  useJustAired,
+} from '@/lib/anilist/hooks';
+import { displayTitle } from '@/lib/anilist/types';
+import type { Media } from '@/lib/anilist/types';
 
-/**
- * XLR8 Design System showcase (Milestone 1).
- * Proves every signature element in one scroll before real screens are wired:
- * serif/sans pairing, true-black surfaces, colorful chips, filter pills,
- * thumbnail-right cards, section headers, the scroll-blend header, and the
- * floating glass bottom nav around it.
- */
+const HERO_HEIGHT = 440;
 
-const GENRES = [
-  'Action',
-  'Adventure',
-  'Fantasy',
-  'Comedy',
-  'Drama',
-  'Romance',
-  'Sci-Fi',
-  'Supernatural',
-];
+export default function Home() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
 
-const FILTERS = ['Trending', 'Sub', 'Dub', 'Movies', 'Ongoing'];
+  const trending = useTrending();
+  const seasonal = usePopularThisSeason();
+  const topRated = useTopRated();
+  const justAired = useJustAired();
 
-export default function Showcase() {
-  const [activeFilter, setActiveFilter] = useState(0);
+  const openDetail = useCallback(
+    (m: Media) => router.push({ pathname: '/anime/[id]', params: { id: String(m.id) } }),
+    [router],
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ['anilist'] });
+    setRefreshing(false);
+  }, [queryClient]);
+
+  const heroItems = (trending.data ?? []).filter((m) => m.bannerImage).slice(0, 6);
 
   return (
     <ScrollBlendScreen
-      title="Design System"
+      title="Home"
       brand={<BrandLockup />}
-      heroHeight={400}
+      heroHeight={HERO_HEIGHT}
       headerRight={<SearchButton />}
-      hero={<Hero />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.text}
+          progressViewOffset={90}
+        />
+      }
+      hero={
+        trending.isPending ? (
+          <HeroSkeleton />
+        ) : (
+          <HeroCarousel items={heroItems} height={HERO_HEIGHT} onPressItem={openDetail} />
+        )
+      }
     >
-      {/* Typography specimen */}
-      <SectionHeader title="Typography" />
-      <View style={styles.block}>
-        <View style={styles.specimen}>
-          <Eyebrow>Editorial serif · the hero moment</Eyebrow>
-          <Text variant="serif" style={{ marginTop: 8 }}>
-            A quiet elf mage outlives the party she once saved the world with, and
-            sets out to understand the humans she never took the time to know.
-          </Text>
-          <View style={styles.divider} />
-          <Eyebrow>SF Pro Display · all ui text</Eyebrow>
-          <Text variant="title" style={{ marginTop: 8 }}>
-            Frieren
-          </Text>
-          <Text variant="label" color={colors.textMuted}>
-            headings · labels · buttons · nav
-          </Text>
-        </View>
-      </View>
-
-      {/* Filter pills */}
-      <SectionHeader title="Filter Pills" />
-      <View style={styles.pillRow}>
-        {FILTERS.map((f, i) => (
-          <FilterPill
-            key={f}
-            label={f}
-            active={i === activeFilter}
-            onPress={() => setActiveFilter(i)}
-          />
-        ))}
-      </View>
-
-      {/* Genre chip grid */}
-      <SectionHeader title="Genres" onSeeAll={() => {}} />
-      <View style={styles.chipGrid}>
-        {GENRES.map((g) => (
-          <View key={g} style={styles.chipCell}>
-            <GenreChip label={g} />
-          </View>
-        ))}
-      </View>
-
-      {/* Continue Watching — thumbnail-right card w/ resume progress */}
-      <SectionHeader title="Continue Watching" onSeeAll={() => {}} />
-      <ContentCard
-        eyebrow="Episode 12"
-        title="Jujutsu Kaisen"
-        meta="8 min left"
-        progress={0.72}
-        image="https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx113415-bbBWj4pEFseh.jpg"
-        placeholderColor="#3A2A4A"
-      />
-
-      {/* New Releases — NEW badge */}
+      {/* New Releases — aired in the last 7 days */}
       <SectionHeader title="New Releases" onSeeAll={() => {}} />
-      <ContentCard
-        badge="New"
-        title="Solo Leveling"
-        meta="Episode 1 · Sub · 1080p"
-        image="https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-vfhFC1a6155o.png"
-        placeholderColor="#243B5A"
-      />
-      <ContentCard
-        badge="New"
-        title="Dandadan"
-        meta="Episode 3 · Sub/Dub · 1080p"
-        image="https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx171018-2ATBpVNoUyfC.jpg"
-        placeholderColor="#5A2438"
-      />
+      {justAired.isPending ? (
+        <>
+          <SkeletonCard />
+          <SkeletonCard />
+        </>
+      ) : justAired.isError ? (
+        <SectionError onRetry={() => justAired.refetch()} />
+      ) : (
+        justAired.data.slice(0, 4).map((item) => (
+          <ContentCard
+            key={item.media.id}
+            badge="New"
+            title={displayTitle(item.media.title)}
+            meta={`Episode ${item.episode} · ${timeAgo(item.airingAt)}`}
+            image={item.media.coverImage.large ?? undefined}
+            placeholderColor={item.media.coverImage.color ?? colors.surfaceAlt}
+            onPress={() => openDetail(item.media)}
+          />
+        ))
+      )}
 
-      {/* Trending — plain thumbnail-right rows */}
+      {/* Trending */}
       <SectionHeader title="Trending" onSeeAll={() => {}} />
-      <ContentCard
-        eyebrow="Trending #1"
-        title="Chainsaw Man"
-        meta="Action · Supernatural"
-        image="https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx127230-FlochcFsyoF4.png"
-        placeholderColor="#4A1F1F"
-      />
+      <MediaRail query={trending} onPressItem={openDetail} />
 
-      <View style={{ height: 8 }} />
+      {/* Popular This Season */}
+      <SectionHeader title="Popular This Season" onSeeAll={() => {}} />
+      <MediaRail query={seasonal} onPressItem={openDetail} />
+
+      {/* Top Rated */}
+      <SectionHeader title="Top Rated" onSeeAll={() => {}} />
+      <MediaRail query={topRated} onPressItem={openDetail} showRank />
     </ScrollBlendScreen>
   );
 }
 
+/** Horizontal poster rail bound to one of the discovery queries. */
+function MediaRail({
+  query,
+  onPressItem,
+  showRank,
+}: {
+  query: {
+    isPending: boolean;
+    isError: boolean;
+    data?: Media[];
+    refetch: () => void;
+  };
+  onPressItem: (m: Media) => void;
+  showRank?: boolean;
+}) {
+  if (query.isPending) return <SkeletonRail />;
+  if (query.isError || !query.data) return <SectionError onRetry={() => query.refetch()} />;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.rail}
+    >
+      {query.data.slice(0, 15).map((m, i) => (
+        <PosterCard
+          key={m.id}
+          title={showRank ? `${i + 1}. ${displayTitle(m.title)}` : displayTitle(m.title)}
+          image={m.coverImage.extraLarge ?? m.coverImage.large}
+          color={m.coverImage.color}
+          score={m.averageScore}
+          onPress={() => onPressItem(m)}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+/** Compact inline retry row — scraping/network breakage never dead-ends. */
+function SectionError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Pressable onPress={onRetry} style={styles.error}>
+      <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
+      <Text variant="meta" style={{ flex: 1 }}>
+        Couldn&apos;t load this row.
+      </Text>
+      <Text variant="button" color={colors.accent}>
+        Retry
+      </Text>
+    </Pressable>
+  );
+}
+
+function HeroSkeleton() {
+  return (
+    <View style={styles.heroSkeleton}>
+      <Skeleton style={{ width: 90, height: 22, borderRadius: 8 }} />
+      <Skeleton style={{ width: '85%', height: 34, borderRadius: 10, marginTop: 14 }} />
+      <Skeleton style={{ width: '55%', height: 34, borderRadius: 10, marginTop: 8 }} />
+      <Skeleton style={{ width: 160, height: 13, borderRadius: 7, marginTop: 14 }} />
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}>
+        <Skeleton style={{ width: 110, height: 42, borderRadius: 999 }} />
+        <Skeleton style={{ width: 110, height: 42, borderRadius: 14 }} />
+      </View>
+    </View>
+  );
+}
+
 /**
- * Typographic XLR8 wordmark shown at the top of the expanded hero; ghosts out
- * on scroll as the compact screen title takes its slot. Placeholder for the
- * hand-drawn manga head + speech-bubble lockup coming in the branding pass.
+ * Typographic XLR8 wordmark; ghosts out on scroll as the compact screen title
+ * takes its slot. Placeholder for the hand-drawn manga lockup.
  */
 function BrandLockup() {
   return (
@@ -147,89 +188,46 @@ function BrandLockup() {
 }
 
 function SearchButton() {
+  const router = useRouter();
   return (
-    <Pressable style={styles.searchBtn} hitSlop={8}>
+    <Pressable style={styles.searchBtn} hitSlop={8} onPress={() => router.push('/search')}>
       <Ionicons name="search" size={20} color={colors.text} />
     </Pressable>
   );
 }
 
-function Hero() {
-  return (
-    <View style={styles.hero}>
-      <LinearGradient
-        colors={['#1a2740', '#3a2140', '#000000']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* bottom scrim so overlaid text stays legible + bleeds into the black */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.2)', '#000000']}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.heroContent}>
-        <View style={styles.heroBadges}>
-          <Badge label="Spotlight" />
-          <View style={{ width: 8 }} />
-          <View style={styles.scoreChip}>
-            <Ionicons name="star" size={12} color="#FFD54A" />
-            <Text variant="eyebrow" color={colors.text} style={{ marginLeft: 4 }}>
-              9.1
-            </Text>
-          </View>
-        </View>
-        <Text variant="hero" style={styles.heroTitle}>
-          Frieren: Beyond{'\n'}Journey&apos;s End
-        </Text>
-        <Text variant="meta" style={{ marginTop: 8 }}>
-          Fantasy · Adventure · Fall 2023 · 28 eps
-        </Text>
-        <View style={styles.heroActions}>
-          <Pressable style={styles.playBtn}>
-            <Ionicons name="play" size={16} color={colors.textInverse} />
-            <Text variant="button" color={colors.textInverse} style={{ marginLeft: 6 }}>
-              Play E1
-            </Text>
-          </Pressable>
-          <GenreChip label="Fantasy" color={genreColor('Fantasy')} style={styles.heroGenre} />
-        </View>
-      </View>
-    </View>
-  );
+function timeAgo(unixSeconds: number): string {
+  const diff = Math.max(0, Math.floor(Date.now() / 1000) - unixSeconds);
+  const hours = Math.floor(diff / 3600);
+  if (hours < 1) return 'just now';
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? '1 day ago' : `${days} days ago`;
 }
 
 const styles = StyleSheet.create({
-  block: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  specimen: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    padding: 20,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginVertical: 18,
-  },
-  pillRow: {
+  rail: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 14,
     paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  error: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginHorizontal: 20,
     marginBottom: 20,
   },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  heroSkeleton: {
+    flex: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  chipCell: {
-    width: '50%',
-    padding: 6,
+    paddingBottom: 40,
   },
   brandRow: {
     flexDirection: 'row',
@@ -254,49 +252,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-  // Hero
-  hero: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  heroContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  heroBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  scoreChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  heroTitle: {
-    fontSize: 40,
-    lineHeight: 46,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 18,
-  },
-  playBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-  },
-  heroGenre: {
-    paddingVertical: 11,
+    backgroundColor: 'rgba(22,22,22,0.7)',
   },
 });
