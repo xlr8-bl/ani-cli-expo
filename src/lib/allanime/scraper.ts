@@ -2,7 +2,13 @@
  * AllAnime scraping — search → episodes → source resolution.
  * Ported from ani-cli (GPL-3.0). See decode.ts for the de-obfuscation.
  */
-import { allanimeQuery, allanimeHeaders, ALLANIME_BASE, AllAnimeError } from './client';
+import {
+  allanimeQuery,
+  allanimeHeaders,
+  fetchWithTimeout,
+  ALLANIME_BASE,
+  AllAnimeError,
+} from './client';
 import { decodeSourceUrl, isObfuscated, clockJsonUrl } from './decode';
 import type {
   AllAnimeShow,
@@ -78,7 +84,7 @@ function qualityLabel(height: number, fallback?: string): string {
 /** Fetch and flatten one provider's clock.json link list into resolved sources. */
 async function resolveClockLinks(decodedPath: string, provider: string): Promise<ResolvedSource[]> {
   const url = clockJsonUrl(decodedPath, ALLANIME_BASE);
-  const res = await fetch(url, { headers: allanimeHeaders() });
+  const res = await fetchWithTimeout(url, { headers: allanimeHeaders() }, 7000);
   if (!res.ok) return [];
   const json = (await res.json()) as { links?: ClockLink[] };
   const headers = allanimeHeaders();
@@ -115,12 +121,18 @@ export async function resolveEpisodeSources(
     episode: { episodeString: string; sourceUrls: SourceUrlEntry[] };
   }>(SOURCES_GQL, { showId, translationType, episodeString });
 
-  const entries = data.episode?.sourceUrls ?? [];
-  // Highest-priority providers first (ani-cli orders by descending priority).
-  entries.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  const allEntries = data.episode?.sourceUrls ?? [];
+  // Highest-priority providers first (ani-cli orders by descending priority),
+  // then cap: resolving every provider's clock.json is what makes this slow.
+  // The top handful covers the useful qualities.
+  const entries = allEntries
+    .slice()
+    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+    .slice(0, 6);
 
   const results: ResolvedSource[] = [];
-  await Promise.all(
+  // allSettled + per-fetch timeout: one dead provider can't stall the rest.
+  await Promise.allSettled(
     entries.map(async (entry) => {
       const raw = entry.sourceUrl;
       if (!raw) return;

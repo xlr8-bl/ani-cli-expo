@@ -27,16 +27,35 @@ export class AllAnimeError extends Error {
   }
 }
 
+/**
+ * fetch with a hard timeout — a hung provider must never stall resolution
+ * forever. Aborts the request after `ms` and rejects.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  ms = 9000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Run an AllAnime GraphQL query (GET with url-encoded variables + query). */
 export async function allanimeQuery<T>(
   query: string,
   variables: Record<string, unknown>,
+  timeoutMs = 9000,
 ): Promise<T> {
   const url =
     `${ALLANIME_API}?variables=${encodeURIComponent(JSON.stringify(variables))}` +
     `&query=${encodeURIComponent(query)}`;
 
-  const res = await fetch(url, { headers: allanimeHeaders() });
+  const res = await fetchWithTimeout(url, { headers: allanimeHeaders() }, timeoutMs);
   if (!res.ok) throw new AllAnimeError(`AllAnime request failed (${res.status})`);
 
   const json = (await res.json()) as { data?: T; errors?: { message: string }[] };
