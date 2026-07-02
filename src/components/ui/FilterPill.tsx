@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from './Text';
 import { colors, radius } from '@/theme/tokens';
 
@@ -18,18 +18,15 @@ export function FilterPill({
   onPress?: () => void;
 }) {
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.pill,
-        active ? styles.active : styles.inactive,
-        { opacity: pressed ? 0.8 : 1 },
-      ]}
+      activeOpacity={0.8}
+      style={[styles.pill, active ? styles.active : styles.inactive]}
     >
       <Text variant="button" color={active ? colors.textInverse : colors.text}>
         {label}
       </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 

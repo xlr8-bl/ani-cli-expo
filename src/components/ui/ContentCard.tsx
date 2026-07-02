@@ -1,4 +1,4 @@
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './Text';
@@ -35,10 +35,7 @@ export function ContentCard({
   onPress?: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
-    >
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
       <View style={styles.textCol}>
         {badge ? (
           <View style={styles.badgeRow}>
@@ -53,7 +50,7 @@ export function ContentCard({
         {meta && (
           <View style={styles.metaRow}>
             {showPlay && (
-              <Ionicons name="play" size={13} color={colors.textMuted} style={{ marginRight: 5 }} />
+              <Ionicons name="play" size={13} color={colors.textMuted} style={styles.playIcon} />
             )}
             <Text variant="meta">{meta}</Text>
           </View>
@@ -73,7 +70,7 @@ export function ContentCard({
           </View>
         )}
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -88,14 +85,14 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 20,
     marginBottom: 14,
-    gap: 14,
   },
   textCol: {
     flex: 1,
-    gap: 6,
+    marginRight: 14,
   },
   badgeRow: {
     flexDirection: 'row',
+    marginBottom: 6,
   },
   title: {
     marginTop: 1,
@@ -103,7 +100,10 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: 8,
+  },
+  playIcon: {
+    marginRight: 5,
   },
   thumbWrap: {
     width: THUMB,

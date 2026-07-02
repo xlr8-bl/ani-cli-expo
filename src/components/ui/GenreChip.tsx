@@ -1,4 +1,4 @@
-import { Pressable, View, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from './Text';
 import { genreColor, radius } from '@/theme/tokens';
 
@@ -13,6 +13,7 @@ import { genreColor, radius } from '@/theme/tokens';
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
 export function GenreChip({
   label,
   color,
@@ -29,20 +30,17 @@ export function GenreChip({
 }) {
   const fill = color ?? genreColor(label);
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={450}
-      style={({ pressed }) => [
-        styles.chip,
-        { backgroundColor: fill, opacity: pressed ? 0.85 : 1 },
-        style,
-      ]}
+      activeOpacity={0.85}
+      style={[styles.chip, { backgroundColor: fill }, style]}
     >
       <Text variant="button" color="#FFFFFF" numberOfLines={1} style={styles.label}>
         {capitalize(label)}
       </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 

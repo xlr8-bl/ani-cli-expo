@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Text } from './Text';
 import { Badge } from './Badge';
@@ -29,10 +29,7 @@ export function PosterCard({
 }) {
   const height = Math.round(width * 1.5);
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}
-    >
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ width }}>
       <View style={[styles.posterWrap, { width, height }]}>
         <Image
           source={image ?? undefined}
@@ -56,7 +53,7 @@ export function PosterCard({
       <Text variant="meta" color={colors.text} numberOfLines={2} style={styles.title}>
         {title}
       </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
