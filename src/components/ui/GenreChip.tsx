@@ -4,10 +4,15 @@ import { genreColor, radius } from '@/theme/tokens';
 
 /**
  * Flat, saturated, solid-color category chip. Each genre keeps a consistent
- * assigned color (see theme/tokens genreColors). Bold white caps label, no
- * gradient, no border — this is how genre/category browsing should look:
- * a colorful rounded-rectangle grid, not a plain gray list.
+ * assigned color (see theme/tokens genreColors). Bold white first-letter-
+ * capital label, no gradient, no border — this is how genre/category browsing
+ * should look: a colorful rounded-rectangle grid, not a plain gray list.
  */
+
+/** "action" → "Action"; leaves the rest of the string's casing alone. */
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 export function GenreChip({
   label,
   color,
@@ -35,7 +40,7 @@ export function GenreChip({
       ]}
     >
       <Text variant="button" color="#FFFFFF" numberOfLines={1} style={styles.label}>
-        {label.toUpperCase()}
+        {capitalize(label)}
       </Text>
     </Pressable>
   );

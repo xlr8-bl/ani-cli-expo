@@ -18,7 +18,7 @@ export function Badge({
   return (
     <View style={[styles.badge, { backgroundColor: color }]}>
       <Text variant="eyebrow" color={textColor} style={styles.text}>
-        {label.toUpperCase()}
+        {label.charAt(0).toUpperCase() + label.slice(1)}
       </Text>
     </View>
   );
