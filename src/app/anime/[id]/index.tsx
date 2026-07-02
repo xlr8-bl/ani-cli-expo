@@ -26,6 +26,7 @@ import { buildEpisodeList } from '@/lib/episodes';
 import { useEpisodeTitles } from '@/lib/jikan';
 import { useAniZipEpisodes } from '@/lib/anizip';
 import { useLibrary } from '@/store/library';
+import { SourceSheet } from '@/components/player/SourceSheet';
 
 /** Placeholder until the downloads milestone lands. */
 export function notYetDownloadable() {
@@ -76,11 +77,15 @@ export default function AnimeDetail() {
   const related = useMemo(() => (media ? relatedAnime(media) : []), [media]);
   const cast = media?.characters.edges ?? [];
 
+  // Episode tapped for playback → source picker sheet.
+  const [playEpisode, setPlayEpisode] = useState<number | null>(null);
+
   const openEpisodes = () =>
     router.push({ pathname: '/anime/[id]/episodes', params: { id: String(activeSeasonId) } });
 
   return (
-    <ScrollBlendScreen
+    <>
+      <ScrollBlendScreen
       title={title}
       heroHeight={HERO_HEIGHT}
       headerRight={<HeaderButtons media={media} onBack={() => router.back()} />}
@@ -169,6 +174,7 @@ export default function AnimeDetail() {
                     filler={jikan?.filler}
                     recap={jikan?.recap}
                     isNew={ep.isNew}
+                    onPress={() => setPlayEpisode(ep.number)}
                     onDownload={notYetDownloadable}
                   />
                 );
@@ -244,7 +250,18 @@ export default function AnimeDetail() {
           )}
         </>
       ) : null}
-    </ScrollBlendScreen>
+      </ScrollBlendScreen>
+
+      {media && (
+        <SourceSheet
+          visible={playEpisode !== null}
+          onClose={() => setPlayEpisode(null)}
+          anilistId={activeSeasonId}
+          title={seasonMedia?.title ?? media.title}
+          episodeNumber={playEpisode}
+        />
+      )}
+    </>
   );
 }
 

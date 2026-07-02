@@ -14,6 +14,7 @@ import { buildEpisodeList, episodeRanges, Episode } from '@/lib/episodes';
 import { useEpisodeTitles, JikanEpisode } from '@/lib/jikan';
 import { useAniZipEpisodes, AniZipEpisode } from '@/lib/anizip';
 import { notYetDownloadable } from './index';
+import { SourceSheet } from '@/components/player/SourceSheet';
 
 const RANGE_SIZE = 100;
 
@@ -54,6 +55,8 @@ export default function EpisodeListScreen() {
   // ani.zip covers the whole show in one shot — fills names AND stills that
   // the other sources miss.
   const aniZip = useAniZipEpisodes(media?.id);
+
+  const [playEpisode, setPlayEpisode] = useState<number | null>(null);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -116,8 +119,19 @@ export default function EpisodeListScreen() {
               duration={media?.duration}
               fallbackImage={media?.coverImage.large ?? undefined}
               placeholderColor={media?.coverImage.color ?? colors.surfaceAlt}
+              onPlay={() => setPlayEpisode(item.number)}
             />
           )}
+        />
+      )}
+
+      {media && (
+        <SourceSheet
+          visible={playEpisode !== null}
+          onClose={() => setPlayEpisode(null)}
+          anilistId={media.id}
+          title={media.title}
+          episodeNumber={playEpisode}
         />
       )}
     </View>
@@ -131,6 +145,7 @@ function EpisodeRow({
   duration,
   fallbackImage,
   placeholderColor,
+  onPlay,
 }: {
   episode: Episode;
   jikan?: JikanEpisode;
@@ -138,6 +153,7 @@ function EpisodeRow({
   duration?: number | null;
   fallbackImage?: string;
   placeholderColor: string;
+  onPlay?: () => void;
 }) {
   return (
     <EpisodeCard
@@ -150,6 +166,7 @@ function EpisodeRow({
       filler={jikan?.filler}
       recap={jikan?.recap}
       isNew={episode.isNew}
+      onPress={onPlay}
       onDownload={notYetDownloadable}
     />
   );
