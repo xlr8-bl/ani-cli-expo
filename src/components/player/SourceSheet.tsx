@@ -6,9 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/Text';
 import { FilterPill } from '@/components/ui/FilterPill';
 import { colors, radius } from '@/theme/tokens';
-import { useAllAnimeShow, useAllAnimeEpisodes, useEpisodeSources } from '@/lib/allanime/hooks';
+import { useAllAnimeShow, useAllAnimeEpisodes } from '@/lib/allanime/hooks';
+import { useEpisodeSources } from '@/lib/sources';
 import type { MediaTitle } from '@/lib/anilist/types';
 import type { TranslationType, ResolvedSource } from '@/lib/allanime/types';
+import { CONSUMET_BASE_URL } from '@/config';
 import { usePlayer } from '@/store/player';
 
 /**
@@ -36,20 +38,22 @@ export function SourceSheet({
   const setNow = usePlayer((s) => s.setNow);
   const [translation, setTranslation] = useState<TranslationType>('sub');
 
+  // Prewarm the AllAnime match/mapping (also powers the dub hint + no-match
+  // message). The actual resolution runs through the provider chain below.
   const show = useAllAnimeShow(anilistId, title, translation);
   const showId = show.data?.id ?? null;
   const episodes = useAllAnimeEpisodes(showId);
 
-  // AllAnime episode identifiers are strings; match ours by number.
-  const episodeString =
+  const sources = useEpisodeSources(
     episodeNumber != null
-      ? (episodes.data?.[translation].find((e) => Number(e) === episodeNumber) ?? String(episodeNumber))
-      : null;
-
-  const sources = useEpisodeSources(showId, episodeString, translation, visible && Boolean(showId));
+      ? { anilistId, title, episodeNumber, translation, allanimeShowId: showId }
+      : null,
+    visible,
+  );
 
   const dubCount = episodes.data?.dub.length ?? 0;
   const hasDub = dubCount > 0;
+  const resolved = sources.data?.sources ?? [];
 
   const pickSource = (source: ResolvedSource) => {
     if (episodeNumber == null) return;
@@ -57,15 +61,16 @@ export function SourceSheet({
       source,
       title: `Episode ${episodeNumber}`,
       episodeNumber,
-      alternates: sources.data ?? [],
+      alternates: resolved,
     });
     onClose();
     router.push('/watch');
   };
 
-  const resolving = show.isPending || episodes.isPending || sources.isFetching;
-  const noMatch = show.data && show.data.id === null;
-  const noSources = sources.isError || (sources.data && sources.data.length === 0);
+  const resolving = sources.isFetching || (!CONSUMET_BASE_URL && show.isPending);
+  // Only treat as "couldn't match" when AllAnime is the only provider.
+  const noMatch = !CONSUMET_BASE_URL && show.data && show.data.id === null && resolved.length === 0;
+  const noSources = !resolving && (sources.isError || resolved.length === 0);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -122,7 +127,7 @@ export function SourceSheet({
           </View>
         ) : (
           <View style={styles.list}>
-            {(sources.data ?? []).map((s, i) => (
+            {resolved.map((s, i) => (
               <TouchableOpacity
                 key={`${s.url}-${i}`}
                 onPress={() => pickSource(s)}
