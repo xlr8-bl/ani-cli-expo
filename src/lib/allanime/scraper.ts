@@ -6,10 +6,13 @@ import {
   allanimeQuery,
   allanimeHeaders,
   fetchWithTimeout,
+  ALLANIME_API,
   ALLANIME_BASE,
   AllAnimeError,
 } from './client';
 import { decodeSourceUrl, isObfuscated, clockJsonUrl } from './decode';
+import { decryptToBeParsed } from './crypto';
+import { extractorFor } from './extractors';
 import type {
   AllAnimeShow,
   SourceUrlEntry,
@@ -21,7 +24,48 @@ const SEARCH_GQL = `query($search:SearchInput,$limit:Int,$page:Int,$translationT
 
 const EPISODES_GQL = `query($showId:String!){show(_id:$showId){_id availableEpisodesDetail}}`;
 
-const SOURCES_GQL = `query($showId:String!,$translationType:VaildTranslationTypeEnumType!,$episodeString:String!){episode(showId:$showId,translationType:$translationType,episodeString:$episodeString){episodeString sourceUrls}}`;
+// AllAnime serves episode sources only via this persisted query (the plain
+// query errors server-side); the payload comes back AES-encrypted.
+const SOURCES_PERSISTED_HASH = 'd405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec';
+
+interface EpisodePayload {
+  episode?: { episodeString: string; sourceUrls: SourceUrlEntry[] } | null;
+}
+
+/** Fetch an episode's sourceUrls via the persisted query, decrypting if needed. */
+async function fetchSourceUrls(
+  showId: string,
+  translationType: TranslationType,
+  episodeString: string,
+): Promise<SourceUrlEntry[]> {
+  const variables = JSON.stringify({ showId, translationType, episodeString });
+  const extensions = JSON.stringify({
+    persistedQuery: { version: 1, sha256Hash: SOURCES_PERSISTED_HASH },
+  });
+  const url =
+    `${ALLANIME_API}?variables=${encodeURIComponent(variables)}` +
+    `&extensions=${encodeURIComponent(extensions)}`;
+
+  const res = await fetchWithTimeout(url, { headers: allanimeHeaders() }, 9000);
+  if (!res.ok) throw new AllAnimeError(`AllAnime sources failed (${res.status})`);
+
+  const json = (await res.json()) as {
+    data?: (EpisodePayload & { tobeparsed?: string }) | null;
+  };
+  const data = json.data;
+  if (!data) return [];
+
+  // Plain response, or the encrypted `tobeparsed` variant.
+  let payload: EpisodePayload | null = data.episode !== undefined ? data : null;
+  if ((!payload || !payload.episode) && data.tobeparsed) {
+    try {
+      payload = JSON.parse(decryptToBeParsed(data.tobeparsed)) as EpisodePayload;
+    } catch {
+      payload = null;
+    }
+  }
+  return payload?.episode?.sourceUrls ?? [];
+}
 
 // --- Search ---------------------------------------------------------------
 
@@ -81,6 +125,16 @@ function qualityLabel(height: number, fallback?: string): string {
   return fallback?.trim() || 'auto';
 }
 
+/**
+ * A decoded source URL is directly playable only if it's an actual media file
+ * or a known direct-CDN host. Embed pages (mp4upload, filemoon…) need HTML
+ * scraping we don't do, so they're skipped rather than surfaced as dead links.
+ */
+function isPlayableDirect(url: string): boolean {
+  if (/\.(m3u8|mp4)(\?|$)/i.test(url)) return true;
+  return /(fast4speed\.rsvp|wixmp\.com|sharepoint\.com|myanimelist)/i.test(url);
+}
+
 /** Fetch and flatten one provider's clock.json link list into resolved sources. */
 async function resolveClockLinks(decodedPath: string, provider: string): Promise<ResolvedSource[]> {
   const url = clockJsonUrl(decodedPath, ALLANIME_BASE);
@@ -117,60 +171,51 @@ export async function resolveEpisodeSources(
   episodeString: string,
   translationType: TranslationType,
 ): Promise<ResolvedSource[]> {
-  const data = await allanimeQuery<{
-    episode: { episodeString: string; sourceUrls: SourceUrlEntry[] };
-  }>(SOURCES_GQL, { showId, translationType, episodeString });
-
-  const allEntries = data.episode?.sourceUrls ?? [];
-  // Highest-priority providers first (ani-cli orders by descending priority),
-  // then cap: resolving every provider's clock.json is what makes this slow.
-  // The top handful covers the useful qualities.
-  const entries = allEntries
-    .slice()
-    .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
-    .slice(0, 6);
+  const entries = await fetchSourceUrls(showId, translationType, episodeString);
 
   const results: ResolvedSource[] = [];
-  // allSettled + per-fetch timeout: one dead provider can't stall the rest.
-  await Promise.allSettled(
-    entries.map(async (entry) => {
-      const raw = entry.sourceUrl;
-      if (!raw) return;
-      const provider = entry.sourceName ?? 'source';
-      try {
-        if (isObfuscated(raw)) {
-          const decoded = decodeSourceUrl(raw);
-          if (decoded.includes('/clock')) {
-            const links = await resolveClockLinks(decoded, provider);
-            results.push(...links);
-          } else if (/^https?:/i.test(decoded)) {
-            // Directly playable decoded URL.
-            const isM3u8 = /\.m3u8(\?|$)/i.test(decoded);
-            results.push({
-              url: decoded,
-              quality: 0,
-              qualityLabel: 'auto',
-              isM3u8,
-              provider,
-              headers: allanimeHeaders(),
-            });
-          }
-        } else if (/^https?:/i.test(raw)) {
-          const isM3u8 = /\.m3u8(\?|$)/i.test(raw);
-          results.push({
-            url: raw,
-            quality: 0,
-            qualityLabel: 'auto',
-            isM3u8,
-            provider,
-            headers: allanimeHeaders(),
-          });
-        }
-      } catch {
-        // A single provider failing must not kill the whole resolution.
-      }
+  const clockPaths: string[] = [];
+  const embedUrls: string[] = [];
+
+  // Decode everything. Direct URLs (e.g. the fast4speed Yt-mp4) need no
+  // network. /clock providers need a clock.json fetch. Embed pages
+  // (mp4upload…) need an extractor. AllAnime rotates which it returns, so we
+  // handle all three to keep playback reliable.
+  for (const entry of entries) {
+    const raw = entry.sourceUrl;
+    if (!raw) continue;
+    const provider = entry.sourceName ?? 'source';
+    const candidate = isObfuscated(raw) ? decodeSourceUrl(raw) : raw;
+    if (candidate.includes('/clock')) {
+      clockPaths.push(candidate);
+    } else if (/^https?:/i.test(candidate) && isPlayableDirect(candidate)) {
+      results.push({
+        url: candidate,
+        quality: 0,
+        qualityLabel: 'auto',
+        isM3u8: /\.m3u8(\?|$)/i.test(candidate),
+        provider,
+        headers: allanimeHeaders(),
+      });
+    } else if (/^https?:/i.test(candidate) && extractorFor(candidate)) {
+      embedUrls.push(candidate);
+    }
+  }
+
+  // Resolve clock + embed providers in parallel (bounded), each with its own
+  // timeout — a dead provider can't stall the rest.
+  const tasks: Promise<ResolvedSource[]>[] = [
+    ...clockPaths.slice(0, 6).map((p) => resolveClockLinks(p, 'clock')),
+    ...embedUrls.slice(0, 4).map(async (u) => {
+      const extract = extractorFor(u);
+      const src = extract ? await extract(u) : null;
+      return src ? [src] : [];
     }),
-  );
+  ];
+  const settled = await Promise.allSettled(tasks);
+  for (const r of settled) {
+    if (r.status === 'fulfilled') results.push(...r.value);
+  }
 
   return dedupeAndSort(results);
 }

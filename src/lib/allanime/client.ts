@@ -1,20 +1,23 @@
 /**
- * AllAnime GraphQL client — ported from ani-cli (GPL-3.0).
- * Endpoint api.allanime.day/api; requires a Referer of https://allanime.to and
- * a desktop Chrome User-Agent. Queries are sent as GET with url-encoded
- * `variables` + `query`, exactly as ani-cli does.
+ * AllAnime GraphQL client — ported from ani-cli (GPL-3.0), kept in sync with
+ * its live request contract:
+ *   - endpoint https://api.allanime.day/api
+ *   - Referer https://youtu-chan.com  (AllAnime moved off allanime.to)
+ *   - a desktop Firefox User-Agent
+ *   - requests are POSTed as JSON ({ variables, query })
  */
 
 export const ALLANIME_API = 'https://api.allanime.day/api';
-export const ALLANIME_REFERER = 'https://allanime.to';
+export const ALLANIME_REFERER = 'https://youtu-chan.com';
 export const ALLANIME_BASE = 'https://allanime.day';
 export const DESKTOP_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0';
 
 /** Headers every AllAnime request needs; also used for the CDN link fetches. */
 export function allanimeHeaders(extra?: Record<string, string>): Record<string, string> {
   return {
     Referer: ALLANIME_REFERER,
+    Origin: ALLANIME_REFERER,
     'User-Agent': DESKTOP_UA,
     ...extra,
   };
@@ -45,17 +48,21 @@ export async function fetchWithTimeout(
   }
 }
 
-/** Run an AllAnime GraphQL query (GET with url-encoded variables + query). */
+/** Run an AllAnime GraphQL query (POST JSON, matching ani-cli). */
 export async function allanimeQuery<T>(
   query: string,
   variables: Record<string, unknown>,
   timeoutMs = 9000,
 ): Promise<T> {
-  const url =
-    `${ALLANIME_API}?variables=${encodeURIComponent(JSON.stringify(variables))}` +
-    `&query=${encodeURIComponent(query)}`;
-
-  const res = await fetchWithTimeout(url, { headers: allanimeHeaders() }, timeoutMs);
+  const res = await fetchWithTimeout(
+    ALLANIME_API,
+    {
+      method: 'POST',
+      headers: allanimeHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ variables, query }),
+    },
+    timeoutMs,
+  );
   if (!res.ok) throw new AllAnimeError(`AllAnime request failed (${res.status})`);
 
   const json = (await res.json()) as { data?: T; errors?: { message: string }[] };
