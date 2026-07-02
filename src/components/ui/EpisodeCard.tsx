@@ -18,6 +18,7 @@ export function EpisodeCard({
   placeholderColor = colors.surfaceAlt,
   duration,
   airedAt,
+  meta,
   filler,
   isNew,
   onPress,
@@ -31,17 +32,16 @@ export function EpisodeCard({
   duration?: number | null;
   /** ISO date string. */
   airedAt?: string | null;
+  /** Overrides the computed duration/date line (e.g. "Episode 39 · 2h ago"). */
+  meta?: string;
   filler?: boolean;
   isNew?: boolean;
   onPress?: () => void;
   onDownload?: () => void;
 }) {
-  const meta = [
-    duration ? `${duration} min` : null,
-    formatAirDate(airedAt),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const metaLine =
+    meta ??
+    [duration ? `${duration} min` : null, formatAirDate(airedAt)].filter(Boolean).join(' · ');
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.row}>
@@ -80,11 +80,11 @@ export function EpisodeCard({
         <Text variant="label" numberOfLines={2} style={styles.title}>
           {title || `Episode ${number}`}
         </Text>
-        {(meta || filler) && (
+        {(metaLine || filler) && (
           <View style={styles.metaRow}>
-            {meta ? <Text variant="meta">{meta}</Text> : null}
+            {metaLine ? <Text variant="meta">{metaLine}</Text> : null}
             {filler && (
-              <Text variant="meta" color="#C77D3B" style={meta ? { marginLeft: 8 } : undefined}>
+              <Text variant="meta" color="#C77D3B" style={metaLine ? { marginLeft: 8 } : undefined}>
                 Filler
               </Text>
             )}

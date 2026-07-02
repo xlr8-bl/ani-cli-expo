@@ -7,9 +7,9 @@ import { ScrollBlendScreen } from '@/components/header/ScrollBlendHeader';
 import { HeroCarousel } from '@/components/home/HeroCarousel';
 import { Text } from '@/components/ui/Text';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { ContentCard } from '@/components/ui/ContentCard';
+import { EpisodeCard } from '@/components/ui/EpisodeCard';
 import { PosterCard } from '@/components/ui/PosterCard';
-import { Skeleton, SkeletonRail, SkeletonCard } from '@/components/ui/Skeleton';
+import { Skeleton, SkeletonRail, SkeletonEpisode } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/tokens';
 import {
   useTrending,
@@ -71,20 +71,21 @@ export default function Home() {
       <SectionHeader title="New Releases" onSeeAll={() => {}} />
       {justAired.isPending ? (
         <>
-          <SkeletonCard />
-          <SkeletonCard />
+          <SkeletonEpisode />
+          <SkeletonEpisode />
         </>
       ) : justAired.isError ? (
         <SectionError onRetry={() => justAired.refetch()} />
       ) : (
         justAired.data.slice(0, 4).map((item) => (
-          <ContentCard
+          <EpisodeCard
             key={item.media.id}
-            badge="New"
+            number={item.episode}
             title={displayTitle(item.media.title)}
             meta={`Episode ${item.episode} · ${timeAgo(item.airingAt)}`}
-            image={item.media.coverImage.large ?? undefined}
+            image={item.media.bannerImage ?? item.media.coverImage.large}
             placeholderColor={item.media.coverImage.color ?? colors.surfaceAlt}
+            isNew
             onPress={() => openDetail(item.media)}
           />
         ))

@@ -58,11 +58,10 @@ export default function AnimeDetail() {
     for (const s of seasonMedia && seasonMedia !== media ? seasonChain(seasonMedia) : [])
       if (!byId.has(s.id)) byId.set(s.id, s);
     const sorted = [...byId.values()].sort((a, b) => a.year - b.year);
-    // Entries whose titles don't say "Season N" fall back to their ordinal in
-    // the chain, so the first pill reads "Season 1", not a bare year.
+    const baseTitle = sorted[0]?.title ?? '';
     return sorted.map((s, i) => ({
       ...s,
-      label: /^Season \d+$/.test(s.label) ? s.label : `Season ${i + 1}`,
+      label: seasonLabel(s.title, baseTitle, i + 1),
     }));
   }, [media, seasonMedia]);
 
@@ -252,10 +251,10 @@ const SEASON_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA']);
 interface SeasonEntry {
   id: number;
   year: number;
-  label: string;
+  title: string;
 }
 
-/** Direct prequel/sequel chain (this show included), ordered by year. */
+/** Direct prequel/sequel chain (this show included), unordered. */
 function seasonChain(media: MediaDetail): SeasonEntry[] {
   const entries = media.relations.edges
     .filter(
@@ -267,21 +266,50 @@ function seasonChain(media: MediaDetail): SeasonEntry[] {
     .map((e) => ({
       id: e.node.id,
       year: e.node.seasonYear ?? (e.relationType === 'PREQUEL' ? -1 : 9999),
-      label: shortSeasonLabel(e.node.seasonYear, displayTitle(e.node.title)),
+      title: displayTitle(e.node.title),
     }));
   if (entries.length === 0) return [];
   entries.push({
     id: media.id,
     year: media.seasonYear ?? 0,
-    label: shortSeasonLabel(media.seasonYear, displayTitle(media.title)),
+    title: displayTitle(media.title),
   });
-  return entries.sort((a, b) => a.year - b.year);
+  return entries;
 }
 
-function shortSeasonLabel(year: number | null, title: string): string {
-  const m = /season\s*(\d+)/i.exec(title);
-  if (m) return `Season ${m[1]}`;
-  return year ? String(year) : title.slice(0, 14);
+/**
+ * Pill label: "Season N" plus the season's actual name — the part of its
+ * title that differs from the base show ("Season 2 · Shibuya Incident",
+ * "Season 4 · The Final Season"). Falls back to a bare "Season N" when the
+ * title carries no distinct name.
+ */
+function seasonLabel(entryTitle: string, baseTitle: string, ordinal: number): string {
+  const base = baseTitle.split(/\s+/);
+  const words = entryTitle.split(/\s+/);
+  let common = 0;
+  while (
+    common < base.length &&
+    common < words.length &&
+    normalizeWord(words[common]) === normalizeWord(base[common])
+  ) {
+    common++;
+  }
+  const remainder = words
+    .slice(common)
+    .join(' ')
+    .replace(/^[\s:\-–—·~]+/, '')
+    .trim();
+  // Strip a leading "Season N" / "Nth Season" from the distinct part so the
+  // pill never reads "Season 3 · Season 3"; keep whatever name remains.
+  const name = remainder
+    .replace(/^(?:season\s*\d+|\d+(?:st|nd|rd|th)\s+season)\s*[:\-–—·~]?\s*/i, '')
+    .trim();
+  if (!name) return `Season ${ordinal}`;
+  return `Season ${ordinal} · ${name}`;
+}
+
+function normalizeWord(w: string): string {
+  return w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 
 /** Everything else related (side stories, movies, specials, alt versions). */

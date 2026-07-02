@@ -46,6 +46,19 @@ export function SkeletonRail() {
   );
 }
 
+/** Widescreen episode-row skeleton (16:9 thumb left + text lines). */
+export function SkeletonEpisode() {
+  return (
+    <View style={styles.episodeRow}>
+      <Skeleton style={{ width: 148, height: 83, borderRadius: 14 }} />
+      <View style={{ flex: 1, marginLeft: 14, gap: 8 }}>
+        <Skeleton style={{ width: '85%', height: 15, borderRadius: 8 }} />
+        <Skeleton style={{ width: 120, height: 12, borderRadius: 6 }} />
+      </View>
+    </View>
+  );
+}
+
 /** Thumbnail-right card-shaped skeleton. */
 export function SkeletonCard() {
   return (
@@ -89,5 +102,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 20,
     marginBottom: 14,
+  },
+  episodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
 });
