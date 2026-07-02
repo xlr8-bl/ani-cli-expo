@@ -24,6 +24,7 @@ import {
 import type { MediaDetail, RelationEdge } from '@/lib/anilist/types';
 import { buildEpisodeList } from '@/lib/episodes';
 import { useEpisodeTitles } from '@/lib/jikan';
+import { useAniZipEpisodes } from '@/lib/anizip';
 import { useLibrary } from '@/store/library';
 
 /** Placeholder until the downloads milestone lands. */
@@ -66,9 +67,10 @@ export default function AnimeDetail() {
   }, [media, seasonMedia]);
 
   const episodes = useMemo(() => (seasonMedia ? buildEpisodeList(seasonMedia) : []), [seasonMedia]);
-  // Complete episode names come from Jikan (MAL); the preview only ever shows
-  // episodes 1..8, which live on Jikan page 1.
+  // Episode names resolve through a chain of sources so nothing shows as a
+  // bare "Episode N": streaming platforms (AniList) → MAL (Jikan) → ani.zip.
   const episodeNames = useEpisodeTitles(seasonMedia?.idMal, 1);
+  const aniZip = useAniZipEpisodes(seasonMedia?.id);
   const preview = episodes.slice(0, EPISODE_PREVIEW);
 
   const related = useMemo(() => (media ? relatedAnime(media) : []), [media]);
@@ -154,15 +156,16 @@ export default function AnimeDetail() {
             <>
               {preview.map((ep) => {
                 const jikan = episodeNames.data?.get(ep.number);
+                const zip = aniZip.data?.get(ep.number);
                 return (
                   <EpisodeCard
                     key={`${activeSeasonId}-${ep.number}`}
                     number={ep.number}
-                    title={ep.title ?? jikan?.title}
-                    image={ep.thumbnail ?? seasonMedia?.coverImage.large}
+                    title={ep.title ?? jikan?.title ?? zip?.title}
+                    image={ep.thumbnail ?? zip?.image ?? seasonMedia?.coverImage.large}
                     placeholderColor={seasonMedia?.coverImage.color ?? colors.surfaceAlt}
                     duration={seasonMedia?.duration}
-                    airedAt={jikan?.aired}
+                    airedAt={jikan?.aired ?? zip?.airDate}
                     filler={jikan?.filler}
                     recap={jikan?.recap}
                     isNew={ep.isNew}

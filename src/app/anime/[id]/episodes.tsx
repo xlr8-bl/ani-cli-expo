@@ -12,6 +12,7 @@ import { useAnimeDetail } from '@/lib/anilist/hooks';
 import { displayTitle } from '@/lib/anilist/types';
 import { buildEpisodeList, episodeRanges, Episode } from '@/lib/episodes';
 import { useEpisodeTitles, JikanEpisode } from '@/lib/jikan';
+import { useAniZipEpisodes, AniZipEpisode } from '@/lib/anizip';
 import { notYetDownloadable } from './index';
 
 const RANGE_SIZE = 100;
@@ -50,6 +51,9 @@ export default function EpisodeListScreen() {
   // Jikan pages are 100 episodes — exactly one range pill per page.
   const jikanPage = activeRange === null ? 1 : activeRange + 1;
   const episodeNames = useEpisodeTitles(media?.idMal, jikanPage);
+  // ani.zip covers the whole show in one shot — fills names AND stills that
+  // the other sources miss.
+  const aniZip = useAniZipEpisodes(media?.id);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -108,6 +112,7 @@ export default function EpisodeListScreen() {
             <EpisodeRow
               episode={item}
               jikan={episodeNames.data?.get(item.number)}
+              zip={aniZip.data?.get(item.number)}
               duration={media?.duration}
               fallbackImage={media?.coverImage.large ?? undefined}
               placeholderColor={media?.coverImage.color ?? colors.surfaceAlt}
@@ -122,12 +127,14 @@ export default function EpisodeListScreen() {
 function EpisodeRow({
   episode,
   jikan,
+  zip,
   duration,
   fallbackImage,
   placeholderColor,
 }: {
   episode: Episode;
   jikan?: JikanEpisode;
+  zip?: AniZipEpisode;
   duration?: number | null;
   fallbackImage?: string;
   placeholderColor: string;
@@ -135,11 +142,11 @@ function EpisodeRow({
   return (
     <EpisodeCard
       number={episode.number}
-      title={episode.title ?? jikan?.title}
-      image={episode.thumbnail ?? fallbackImage}
+      title={episode.title ?? jikan?.title ?? zip?.title}
+      image={episode.thumbnail ?? zip?.image ?? fallbackImage}
       placeholderColor={placeholderColor}
       duration={duration}
-      airedAt={jikan?.aired}
+      airedAt={jikan?.aired ?? zip?.airDate}
       filler={jikan?.filler}
       recap={jikan?.recap}
       isNew={episode.isNew}
