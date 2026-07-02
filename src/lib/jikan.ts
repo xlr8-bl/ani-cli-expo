@@ -13,6 +13,8 @@ export interface JikanEpisode {
   title: string | null;
   filler: boolean;
   recap: boolean;
+  /** ISO air date. */
+  aired: string | null;
 }
 
 interface JikanEpisodesResponse {

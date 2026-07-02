@@ -23,6 +23,8 @@ export interface Media {
   season: string | null;
   seasonYear: number | null;
   episodes: number | null;
+  /** Average episode length in minutes. */
+  duration: number | null;
   description: string | null;
   nextAiringEpisode: {
     episode: number;

@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/Text';
-import { ContentCard } from '@/components/ui/ContentCard';
+import { EpisodeCard } from '@/components/ui/EpisodeCard';
 import { FilterPill } from '@/components/ui/FilterPill';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/tokens';
@@ -108,6 +108,7 @@ export default function EpisodeListScreen() {
             <EpisodeRow
               episode={item}
               jikan={episodeNames.data?.get(item.number)}
+              duration={media?.duration}
               fallbackImage={media?.coverImage.large ?? undefined}
               placeholderColor={media?.coverImage.color ?? colors.surfaceAlt}
             />
@@ -121,23 +122,26 @@ export default function EpisodeListScreen() {
 function EpisodeRow({
   episode,
   jikan,
+  duration,
   fallbackImage,
   placeholderColor,
 }: {
   episode: Episode;
   jikan?: JikanEpisode;
+  duration?: number | null;
   fallbackImage?: string;
   placeholderColor: string;
 }) {
-  const name = episode.title ?? jikan?.title ?? null;
   return (
-    <ContentCard
-      eyebrow={episode.isNew || !name ? undefined : `Episode ${episode.number}`}
-      badge={episode.isNew ? 'New' : undefined}
-      title={name ?? `Episode ${episode.number}`}
-      meta={jikan?.filler ? 'Filler' : (episode.site ?? undefined)}
+    <EpisodeCard
+      number={episode.number}
+      title={episode.title ?? jikan?.title}
       image={episode.thumbnail ?? fallbackImage}
       placeholderColor={placeholderColor}
+      duration={duration}
+      airedAt={jikan?.aired}
+      filler={jikan?.filler}
+      isNew={episode.isNew}
       onDownload={notYetDownloadable}
     />
   );

@@ -8,7 +8,7 @@ import { ScrollBlendScreen } from '@/components/header/ScrollBlendHeader';
 import { Text } from '@/components/ui/Text';
 import { GenreChip } from '@/components/ui/GenreChip';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { ContentCard } from '@/components/ui/ContentCard';
+import { EpisodeCard } from '@/components/ui/EpisodeCard';
 import { PosterCard } from '@/components/ui/PosterCard';
 import { CastCard } from '@/components/ui/CastCard';
 import { FilterPill } from '@/components/ui/FilterPill';
@@ -43,18 +43,40 @@ export default function AnimeDetail() {
   const media = detail.data;
   const title = media ? displayTitle(media.title) : ' ';
 
-  const episodes = useMemo(() => (media ? buildEpisodeList(media) : []), [media]);
+  // --- Season-aware episodes ------------------------------------------------
+  // The episode list is bound to a selected season (default: this entry).
+  // Selecting a pill swaps the list in place by fetching that season's detail;
+  // the chain grows as more of it is discovered through each season's relations.
+  const [seasonId, setSeasonId] = useState<number | null>(null);
+  const activeSeasonId = seasonId ?? Number(id);
+  const seasonDetail = useAnimeDetail(activeSeasonId);
+  const seasonMedia = seasonDetail.data;
+
+  const seasons = useMemo(() => {
+    const byId = new Map<number, SeasonEntry>();
+    for (const s of media ? seasonChain(media) : []) byId.set(s.id, s);
+    for (const s of seasonMedia && seasonMedia !== media ? seasonChain(seasonMedia) : [])
+      if (!byId.has(s.id)) byId.set(s.id, s);
+    const sorted = [...byId.values()].sort((a, b) => a.year - b.year);
+    // Entries whose titles don't say "Season N" fall back to their ordinal in
+    // the chain, so the first pill reads "Season 1", not a bare year.
+    return sorted.map((s, i) => ({
+      ...s,
+      label: /^Season \d+$/.test(s.label) ? s.label : `Season ${i + 1}`,
+    }));
+  }, [media, seasonMedia]);
+
+  const episodes = useMemo(() => (seasonMedia ? buildEpisodeList(seasonMedia) : []), [seasonMedia]);
   // Complete episode names come from Jikan (MAL); the preview only ever shows
   // episodes 1..8, which live on Jikan page 1.
-  const episodeNames = useEpisodeTitles(media?.idMal, 1);
+  const episodeNames = useEpisodeTitles(seasonMedia?.idMal, 1);
   const preview = episodes.slice(0, EPISODE_PREVIEW);
 
-  const seasons = useMemo(() => (media ? seasonChain(media) : []), [media]);
   const related = useMemo(() => (media ? relatedAnime(media) : []), [media]);
   const cast = media?.characters.edges ?? [];
 
   const openEpisodes = () =>
-    router.push({ pathname: '/anime/[id]/episodes', params: { id: String(id) } });
+    router.push({ pathname: '/anime/[id]/episodes', params: { id: String(activeSeasonId) } });
 
   return (
     <ScrollBlendScreen
@@ -95,50 +117,55 @@ export default function AnimeDetail() {
           <SectionHeader title="Synopsis" />
           <Synopsis text={plainDescription(media.description)} />
 
-          {/* Season selector — switches in place via relations */}
+          {/* Episodes — season aware. Pills swap the list in place; the full
+              list moves to its own page past the preview threshold. */}
+          <SectionHeader
+            title="Episodes"
+            onSeeAll={episodes.length > EPISODE_PREVIEW ? openEpisodes : undefined}
+            seeAllLabel={episodes.length > EPISODE_PREVIEW ? `All ${episodes.length}` : undefined}
+          />
           {seasons.length > 1 && (
-            <>
-              <SectionHeader title="Seasons" />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pillRow}
-              >
-                {seasons.map((s) => (
-                  <FilterPill
-                    key={s.id}
-                    label={s.label}
-                    active={s.id === media.id}
-                    onPress={() =>
-                      s.id !== media.id &&
-                      router.replace({ pathname: '/anime/[id]', params: { id: String(s.id) } })
-                    }
-                  />
-                ))}
-              </ScrollView>
-            </>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.pillRow}
+            >
+              {seasons.map((s) => (
+                <FilterPill
+                  key={s.id}
+                  label={s.label}
+                  active={s.id === activeSeasonId}
+                  onPress={() => setSeasonId(s.id)}
+                />
+              ))}
+            </ScrollView>
           )}
-
-          {/* Episodes — real thumbnails; full list on its own page past the threshold */}
-          {episodes.length > 0 && (
+          {seasonDetail.isPending ? (
+            <View style={{ paddingHorizontal: 20, gap: 14, marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 14 }}>
+                <Skeleton style={{ width: 148, height: 83, borderRadius: 14 }} />
+                <Skeleton style={{ flex: 1, height: 16, borderRadius: 8, alignSelf: 'center' }} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 14 }}>
+                <Skeleton style={{ width: 148, height: 83, borderRadius: 14 }} />
+                <Skeleton style={{ flex: 1, height: 16, borderRadius: 8, alignSelf: 'center' }} />
+              </View>
+            </View>
+          ) : (
             <>
-              <SectionHeader
-                title="Episodes"
-                onSeeAll={episodes.length > EPISODE_PREVIEW ? openEpisodes : undefined}
-                seeAllLabel={`All ${episodes.length}`}
-              />
               {preview.map((ep) => {
                 const jikan = episodeNames.data?.get(ep.number);
-                const name = ep.title ?? jikan?.title ?? null;
                 return (
-                  <ContentCard
-                    key={ep.number}
-                    eyebrow={ep.isNew || !name ? undefined : `Episode ${ep.number}`}
-                    badge={ep.isNew ? 'New' : undefined}
-                    title={name ?? `Episode ${ep.number}`}
-                    meta={jikan?.filler ? 'Filler' : (ep.site ?? undefined)}
-                    image={ep.thumbnail ?? media.coverImage.large ?? undefined}
-                    placeholderColor={media.coverImage.color ?? colors.surfaceAlt}
+                  <EpisodeCard
+                    key={`${activeSeasonId}-${ep.number}`}
+                    number={ep.number}
+                    title={ep.title ?? jikan?.title}
+                    image={ep.thumbnail ?? seasonMedia?.coverImage.large}
+                    placeholderColor={seasonMedia?.coverImage.color ?? colors.surfaceAlt}
+                    duration={seasonMedia?.duration}
+                    airedAt={jikan?.aired}
+                    filler={jikan?.filler}
+                    isNew={ep.isNew}
                     onDownload={notYetDownloadable}
                   />
                 );
@@ -222,8 +249,14 @@ export default function AnimeDetail() {
 
 const SEASON_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA']);
 
+interface SeasonEntry {
+  id: number;
+  year: number;
+  label: string;
+}
+
 /** Direct prequel/sequel chain (this show included), ordered by year. */
-function seasonChain(media: MediaDetail) {
+function seasonChain(media: MediaDetail): SeasonEntry[] {
   const entries = media.relations.edges
     .filter(
       (e) =>

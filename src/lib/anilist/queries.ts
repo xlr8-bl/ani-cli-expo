@@ -13,6 +13,7 @@ export const MEDIA_FIELDS = `
   season
   seasonYear
   episodes
+  duration
   description
   nextAiringEpisode { episode airingAt }
 `;
@@ -77,6 +78,7 @@ export const DETAIL_QUERY = `
           relationType
           node {
             id
+            idMal
             type
             title { romaji english native }
             coverImage { extraLarge large color }
@@ -88,6 +90,7 @@ export const DETAIL_QUERY = `
             season
             seasonYear
             episodes
+            duration
             description
             nextAiringEpisode { episode airingAt }
           }
