@@ -2,6 +2,7 @@
 
 export const MEDIA_FIELDS = `
   id
+  idMal
   title { romaji english native }
   coverImage { extraLarge large color }
   bannerImage

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,7 +23,13 @@ import {
 } from '@/lib/anilist/types';
 import type { MediaDetail, RelationEdge } from '@/lib/anilist/types';
 import { buildEpisodeList } from '@/lib/episodes';
+import { useEpisodeTitles } from '@/lib/jikan';
 import { useLibrary } from '@/store/library';
+
+/** Placeholder until the downloads milestone lands. */
+export function notYetDownloadable() {
+  Alert.alert('Downloads', 'Downloads are coming in a later update.');
+}
 
 const HERO_HEIGHT = 420;
 /** Episodes shown inline on Detail; beyond this the full list gets its own page. */
@@ -38,6 +44,9 @@ export default function AnimeDetail() {
   const title = media ? displayTitle(media.title) : ' ';
 
   const episodes = useMemo(() => (media ? buildEpisodeList(media) : []), [media]);
+  // Complete episode names come from Jikan (MAL); the preview only ever shows
+  // episodes 1..8, which live on Jikan page 1.
+  const episodeNames = useEpisodeTitles(media?.idMal, 1);
   const preview = episodes.slice(0, EPISODE_PREVIEW);
 
   const seasons = useMemo(() => (media ? seasonChain(media) : []), [media]);
@@ -118,17 +127,22 @@ export default function AnimeDetail() {
                 onSeeAll={episodes.length > EPISODE_PREVIEW ? openEpisodes : undefined}
                 seeAllLabel={`All ${episodes.length}`}
               />
-              {preview.map((ep) => (
-                <ContentCard
-                  key={ep.number}
-                  eyebrow={ep.isNew || !ep.title ? undefined : `Episode ${ep.number}`}
-                  badge={ep.isNew ? 'New' : undefined}
-                  title={ep.title ?? `Episode ${ep.number}`}
-                  meta={ep.site ?? undefined}
-                  image={ep.thumbnail ?? media.coverImage.large ?? undefined}
-                  placeholderColor={media.coverImage.color ?? colors.surfaceAlt}
-                />
-              ))}
+              {preview.map((ep) => {
+                const jikan = episodeNames.data?.get(ep.number);
+                const name = ep.title ?? jikan?.title ?? null;
+                return (
+                  <ContentCard
+                    key={ep.number}
+                    eyebrow={ep.isNew || !name ? undefined : `Episode ${ep.number}`}
+                    badge={ep.isNew ? 'New' : undefined}
+                    title={name ?? `Episode ${ep.number}`}
+                    meta={jikan?.filler ? 'Filler' : (ep.site ?? undefined)}
+                    image={ep.thumbnail ?? media.coverImage.large ?? undefined}
+                    placeholderColor={media.coverImage.color ?? colors.surfaceAlt}
+                    onDownload={notYetDownloadable}
+                  />
+                );
+              })}
               {episodes.length > EPISODE_PREVIEW && (
                 <Pressable onPress={openEpisodes} style={styles.allEpisodesBtn}>
                   <Text variant="button">See all {episodes.length} episodes</Text>

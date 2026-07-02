@@ -11,6 +11,8 @@ import { colors } from '@/theme/tokens';
 import { useAnimeDetail } from '@/lib/anilist/hooks';
 import { displayTitle } from '@/lib/anilist/types';
 import { buildEpisodeList, episodeRanges, Episode } from '@/lib/episodes';
+import { useEpisodeTitles, JikanEpisode } from '@/lib/jikan';
+import { notYetDownloadable } from './index';
 
 const RANGE_SIZE = 100;
 
@@ -44,6 +46,10 @@ export default function EpisodeListScreen() {
     const r = ranges[activeRange];
     return episodes.slice(r.start - 1, r.end);
   }, [episodes, ranges, activeRange]);
+
+  // Jikan pages are 100 episodes — exactly one range pill per page.
+  const jikanPage = activeRange === null ? 1 : activeRange + 1;
+  const episodeNames = useEpisodeTitles(media?.idMal, jikanPage);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -101,6 +107,7 @@ export default function EpisodeListScreen() {
           renderItem={({ item }) => (
             <EpisodeRow
               episode={item}
+              jikan={episodeNames.data?.get(item.number)}
               fallbackImage={media?.coverImage.large ?? undefined}
               placeholderColor={media?.coverImage.color ?? colors.surfaceAlt}
             />
@@ -113,21 +120,25 @@ export default function EpisodeListScreen() {
 
 function EpisodeRow({
   episode,
+  jikan,
   fallbackImage,
   placeholderColor,
 }: {
   episode: Episode;
+  jikan?: JikanEpisode;
   fallbackImage?: string;
   placeholderColor: string;
 }) {
+  const name = episode.title ?? jikan?.title ?? null;
   return (
     <ContentCard
-      eyebrow={episode.isNew || !episode.title ? undefined : `Episode ${episode.number}`}
+      eyebrow={episode.isNew || !name ? undefined : `Episode ${episode.number}`}
       badge={episode.isNew ? 'New' : undefined}
-      title={episode.title ?? `Episode ${episode.number}`}
-      meta={episode.site ?? undefined}
+      title={name ?? `Episode ${episode.number}`}
+      meta={jikan?.filler ? 'Filler' : (episode.site ?? undefined)}
       image={episode.thumbnail ?? fallbackImage}
       placeholderColor={placeholderColor}
+      onDownload={notYetDownloadable}
     />
   );
 }

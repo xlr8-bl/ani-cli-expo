@@ -1,4 +1,4 @@
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { Image, ImageSource } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './Text';
@@ -22,6 +22,7 @@ export function ContentCard({
   showPlay = true,
   progress,
   onPress,
+  onDownload,
 }: {
   eyebrow?: string;
   title: string;
@@ -33,6 +34,8 @@ export function ContentCard({
   /** 0..1 resume progress bar under the thumbnail. */
   progress?: number;
   onPress?: () => void;
+  /** Renders a small download chip on the thumbnail. */
+  onDownload?: () => void;
 }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
@@ -68,6 +71,11 @@ export function ContentCard({
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
           </View>
+        )}
+        {onDownload && (
+          <Pressable onPress={onDownload} hitSlop={10} style={styles.downloadChip}>
+            <Ionicons name="download-outline" size={14} color={colors.text} />
+          </Pressable>
         )}
       </View>
     </TouchableOpacity>
@@ -129,5 +137,16 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 2,
     backgroundColor: colors.accent,
+  },
+  downloadChip: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
 });

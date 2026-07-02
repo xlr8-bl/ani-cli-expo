@@ -8,6 +8,7 @@ export interface MediaTitle {
 
 export interface Media {
   id: number;
+  idMal: number | null;
   title: MediaTitle;
   coverImage: {
     extraLarge: string | null;
