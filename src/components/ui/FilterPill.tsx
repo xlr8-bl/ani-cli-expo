@@ -23,7 +23,7 @@ export function FilterPill({
       style={({ pressed }) => [
         styles.pill,
         active ? styles.active : styles.inactive,
-        pressed && { opacity: 0.8 },
+        { opacity: pressed ? 0.8 : 1 },
       ]}
     >
       <Text variant="button" color={active ? colors.textInverse : colors.text}>

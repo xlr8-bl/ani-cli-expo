@@ -10,7 +10,13 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/tokens';
 import { useAnimeDetail } from '@/lib/anilist/hooks';
-import { displayTitle, plainDescription } from '@/lib/anilist/types';
+import {
+  displayTitle,
+  plainDescription,
+  sentenceCaseEnum,
+  formatLabel,
+} from '@/lib/anilist/types';
+import { useState } from 'react';
 
 const HERO_HEIGHT = 420;
 
@@ -60,11 +66,9 @@ export default function AnimeDetail() {
         </View>
       ) : detail.data ? (
         <>
-          {/* Synopsis — the serif editorial moment */}
+          {/* Synopsis — the serif editorial moment, clamped with See more */}
           <SectionHeader title="Synopsis" />
-          <View style={styles.synopsisWrap}>
-            <Text variant="serif">{plainDescription(detail.data.description)}</Text>
-          </View>
+          <Synopsis text={plainDescription(detail.data.description)} />
 
           {/* Genres */}
           {detail.data.genres.length > 0 && (
@@ -92,13 +96,46 @@ export default function AnimeDetail() {
   );
 }
 
+const SYNOPSIS_LINES = 5;
+
+/** Serif synopsis clamped to a few lines with a See more / See less toggle. */
+function Synopsis({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  // Long text is assumed clamped up front (onTextLayout confirms on native
+  // but never fires on web).
+  const [clamped, setClamped] = useState(text.length > 280);
+
+  return (
+    <View style={styles.synopsisWrap}>
+      <Text
+        variant="serif"
+        numberOfLines={expanded ? undefined : SYNOPSIS_LINES}
+        onTextLayout={(e) => {
+          if (!expanded && e.nativeEvent.lines.length >= SYNOPSIS_LINES) setClamped(true);
+        }}
+      >
+        {text}
+      </Text>
+      {(clamped || expanded) && (
+        <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={8} style={styles.seeMore}>
+          <Text variant="button" color={colors.accent}>
+            {expanded ? 'See less' : 'See more'}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 function Hero({ media }: { media: NonNullable<ReturnType<typeof useAnimeDetail>['data']> }) {
   const art = media.bannerImage ?? media.coverImage.extraLarge ?? media.coverImage.large;
   const meta = [
-    media.format,
-    media.season && media.seasonYear ? `${media.season} ${media.seasonYear}` : null,
+    formatLabel(media.format),
+    media.season && media.seasonYear
+      ? `${sentenceCaseEnum(media.season)} ${media.seasonYear}`
+      : null,
     media.episodes ? `${media.episodes} eps` : null,
-    media.status,
+    sentenceCaseEnum(media.status),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -196,6 +233,10 @@ const styles = StyleSheet.create({
   synopsisWrap: {
     paddingHorizontal: 20,
     marginBottom: 10,
+  },
+  seeMore: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
   },
   chipGrid: {
     flexDirection: 'row',

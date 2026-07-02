@@ -29,7 +29,10 @@ export function PosterCard({
 }) {
   const height = Math.round(width * 1.5);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [{ width }, pressed && { opacity: 0.85 }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}
+    >
       <View style={[styles.posterWrap, { width, height }]}>
         <Image
           source={image ?? undefined}

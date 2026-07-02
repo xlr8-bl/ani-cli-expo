@@ -37,7 +37,7 @@ export function ContentCard({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
     >
       <View style={styles.textCol}>
         {badge ? (
