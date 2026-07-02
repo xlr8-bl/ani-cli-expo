@@ -39,6 +39,7 @@ export default function Showcase() {
   return (
     <ScrollBlendScreen
       title="Design System"
+      brand={<BrandLockup />}
       heroHeight={400}
       headerRight={<SearchButton />}
       hero={<Hero />}
@@ -129,6 +130,22 @@ export default function Showcase() {
   );
 }
 
+/**
+ * Typographic XLR8 wordmark shown at the top of the expanded hero; ghosts out
+ * on scroll as the compact screen title takes its slot. Placeholder for the
+ * hand-drawn manga head + speech-bubble lockup coming in the branding pass.
+ */
+function BrandLockup() {
+  return (
+    <View style={styles.brandRow}>
+      <Text variant="heading" style={styles.brandMark}>
+        XLR8
+      </Text>
+      <View style={styles.brandDot} />
+    </View>
+  );
+}
+
 function SearchButton() {
   return (
     <Pressable style={styles.searchBtn} hitSlop={8}>
@@ -213,6 +230,23 @@ const styles = StyleSheet.create({
   chipCell: {
     width: '50%',
     padding: 6,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  brandMark: {
+    fontSize: 24,
+    letterSpacing: 1.5,
+    fontStyle: 'italic',
+  },
+  brandDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+    marginLeft: 3,
+    marginTop: 4,
   },
   searchBtn: {
     width: 40,

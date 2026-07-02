@@ -9,51 +9,56 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/Text';
 import { colors, glass } from '@/theme/tokens';
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
+// How far the compact header's backdrop bleeds below the bar before fully
+// dissolving — there is never a clean edge cutting the content.
+const FADE = 36;
+
 /**
  * The scroll-blend header — the second signature element.
  *
- * The top region starts as a large full-bleed hero with text overlaid directly
- * on it (no card border, no bar chrome, bleeds to the edges). As the user
- * scrolls, the hero COLLAPSES into a compact sticky header — but not as a hard
- * cut: the outgoing hero fades and ghosts behind the incoming compact title via
- * an opacity/translateY blend, so for a moment both are partially visible, one
- * dissolving as the other solidifies. The sticky header itself picks up a real
- * translucent blurred backdrop (same glass family as the bottom nav), its blur
- * intensity interpolated from 0 → full rather than snapping on.
+ * The top region starts as a large full-bleed hero with the brand lockup
+ * (app name) overlaid at the top. As the user scrolls, the hero collapses
+ * into a compact sticky header — not as a hard cut: the brand/hero ghost out
+ * (opacity + translate) while the compact screen title solidifies in the same
+ * slot, and the header's blurred backdrop fades in as a soft top-down
+ * GRADIENT that dissolves over an extra bleed zone below the bar, so there is
+ * no clean border between header and content.
  *
  * Driven entirely by a scroll-linked interpolation (Reanimated), not a
  * show/hide toggle. Reused by Home and Detail.
  */
 export function ScrollBlendScreen({
   title,
+  brand,
   hero,
   heroHeight = 380,
   headerRight,
   children,
-  onScrollOffsetChange,
 }: {
-  /** Compact sticky title (rounded sans). */
+  /** Compact sticky title that solidifies on scroll. */
   title: string;
+  /** Brand lockup (app name) shown at the top while expanded; ghosts out on scroll. */
+  brand?: ReactNode;
   /** Full-bleed hero content rendered at the top of the scroll. */
   hero: ReactNode;
   heroHeight?: number;
   headerRight?: ReactNode;
   children: ReactNode;
-  onScrollOffsetChange?: (y: number) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scrollY = useSharedValue(0);
 
-  const compactHeaderH = insets.top + 52;
+  const barH = insets.top + 52;
   // The hero has fully collapsed once we've scrolled ~60% of its height.
-  const collapseEnd = heroHeight - compactHeaderH;
+  const collapseEnd = heroHeight - barH;
   const blendStart = collapseEnd * 0.45;
 
   const onScroll = useAnimatedScrollHandler({
@@ -62,7 +67,7 @@ export function ScrollBlendScreen({
     },
   });
 
-  // Compact header backdrop: blur intensity + tint fade in together.
+  // Compact backdrop: blur intensity + gradient tint fade in together.
   const blurAnimatedProps = useAnimatedProps(() => ({
     intensity: interpolate(
       scrollY.value,
@@ -78,12 +83,7 @@ export function ScrollBlendScreen({
 
   // Compact title: fades in + slides up into place as the hero dissolves.
   const compactTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      scrollY.value,
-      [blendStart, collapseEnd],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
+    opacity: interpolate(scrollY.value, [blendStart, collapseEnd], [0, 1], Extrapolation.CLAMP),
     transform: [
       {
         translateY: interpolate(
@@ -92,6 +92,16 @@ export function ScrollBlendScreen({
           [10, 0],
           Extrapolation.CLAMP,
         ),
+      },
+    ],
+  }));
+
+  // Brand lockup: visible while expanded, ghosts out as the title arrives.
+  const brandStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, blendStart], [1, 0], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(scrollY.value, [0, blendStart], [0, -8], Extrapolation.CLAMP),
       },
     ],
   }));
@@ -107,12 +117,7 @@ export function ScrollBlendScreen({
     ),
     transform: [
       {
-        translateY: interpolate(
-          scrollY.value,
-          [0, collapseEnd],
-          [0, -40],
-          Extrapolation.CLAMP,
-        ),
+        translateY: interpolate(scrollY.value, [0, collapseEnd], [0, -40], Extrapolation.CLAMP),
       },
     ],
   }));
@@ -129,22 +134,41 @@ export function ScrollBlendScreen({
         <View style={styles.body}>{children}</View>
       </Animated.ScrollView>
 
-      {/* Sticky compact header overlay */}
-      <View style={[styles.compact, { height: compactHeaderH, paddingTop: insets.top }]}>
+      {/* Sticky compact header overlay. Extends FADE px past the bar so the
+          backdrop dissolves in a gradient instead of a hard edge. */}
+      <View
+        style={[styles.compact, { height: barH + FADE, paddingTop: insets.top }]}
+        pointerEvents="box-none"
+      >
+        {/* Blur bleeds slightly into the fade zone; its lower edge sits where
+            the gradient is still dark, so no visible seam. */}
         <AnimatedBlurView
           animatedProps={blurAnimatedProps}
           tint={glass.tint}
           experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { bottom: FADE - 14 }]}
+          pointerEvents="none"
         />
-        <Animated.View style={[styles.compactTintFill, backdropStyle]} pointerEvents="none" />
-        <View style={styles.compactRow}>
-          <Animated.View style={[styles.compactTitleWrap, compactTitleStyle]}>
-            <Text variant="heading" numberOfLines={1}>
-              {title}
-            </Text>
-          </Animated.View>
-          {headerRight ? <View style={styles.compactRight}>{headerRight}</View> : null}
+        <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="none">
+          <LinearGradient
+            colors={['rgba(0,0,0,0.88)', 'rgba(0,0,0,0.62)', 'rgba(0,0,0,0)']}
+            locations={[0, 0.6, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+
+        <View style={styles.row}>
+          <View style={styles.titleSlot}>
+            {brand ? (
+              <Animated.View style={[styles.slotFill, brandStyle]}>{brand}</Animated.View>
+            ) : null}
+            <Animated.View style={[styles.slotFill, compactTitleStyle]}>
+              <Text variant="heading" numberOfLines={1}>
+                {title}
+              </Text>
+            </Animated.View>
+          </View>
+          {headerRight ? <View style={styles.right}>{headerRight}</View> : null}
         </View>
       </View>
     </View>
@@ -164,29 +188,27 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    overflow: 'hidden',
   },
-  compactTintFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  compactRow: {
-    flex: 1,
+  row: {
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  compactTitleWrap: {
+  titleSlot: {
     flex: 1,
+    height: '100%',
   },
-  compactRight: {
+  slotFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  right: {
     marginLeft: 12,
   },
 });
