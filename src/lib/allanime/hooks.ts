@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSourceMap } from '@/store/sourceMap';
-import { searchShows, getAvailableEpisodes, resolveEpisodeSources } from './scraper';
-import { matchShow } from './match';
-import { displayTitle } from '../anilist/types';
+import { searchAndMatch, getAvailableEpisodes, resolveEpisodeSources } from './scraper';
 import type { MediaTitle } from '../anilist/types';
 import type { TranslationType, AllAnimeShow, ResolvedSource } from './types';
 
@@ -28,11 +26,9 @@ export function useAllAnimeShow(
       if (cached) {
         return { id: cached.allanimeId, name: cached.allanimeName, confident: true, manual: cached.manual };
       }
-      const query = displayTitle(title!);
-      const candidates = await searchShows(query, translationType);
-      const match = matchShow(title!, candidates, translationType);
+      const match = await searchAndMatch(title!, translationType);
       if (!match) {
-        return { id: null, name: null, confident: false, manual: false, candidates };
+        return { id: null, name: null, confident: false, manual: false };
       }
       setMapping(anilistId!, {
         allanimeId: match.show._id,

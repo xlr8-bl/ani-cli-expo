@@ -23,7 +23,16 @@ export default function Watch() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   const player = useVideoPlayer(
-    now ? { uri: now.source.url, headers: now.source.headers } : null,
+    now
+      ? {
+          uri: now.source.url,
+          headers: now.source.headers,
+          // Many sources (e.g. the fast4speed mp4) have no file extension and
+          // serve octet-stream, so the player can't auto-detect the format.
+          // Tell it explicitly: hls for m3u8, progressive for mp4.
+          contentType: now.source.isM3u8 ? 'hls' : 'progressive',
+        }
+      : null,
     (p) => {
       p.play();
     },

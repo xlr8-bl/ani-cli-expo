@@ -13,6 +13,8 @@ import {
 import { decodeSourceUrl, isObfuscated, clockJsonUrl } from './decode';
 import { decryptToBeParsed } from './crypto';
 import { extractorFor } from './extractors';
+import { matchShow, MatchResult } from './match';
+import type { MediaTitle } from '../anilist/types';
 import type {
   AllAnimeShow,
   SourceUrlEntry,
@@ -81,6 +83,34 @@ export async function searchShows(
     countryOrigin: 'ALL',
   });
   return data.shows.edges ?? [];
+}
+
+/**
+ * Find the best AllAnime show for an AniList title. Searches by romaji first
+ * (AllAnime names shows in romaji), and if the match is weak, also searches by
+ * english and re-matches over the merged candidates — this rescues newer shows
+ * whose english title barely overlaps the provider's romaji name.
+ */
+export async function searchAndMatch(
+  title: MediaTitle,
+  translationType: TranslationType,
+): Promise<MatchResult | null> {
+  const queries = [title.romaji, title.english, title.native].filter(
+    (q, i, arr): q is string => Boolean(q) && arr.indexOf(q) === i,
+  );
+  if (queries.length === 0) return null;
+
+  const byId = new Map<string, AllAnimeShow>();
+  let best: MatchResult | null = null;
+
+  for (const query of queries.slice(0, 2)) {
+    const edges = await searchShows(query, translationType);
+    for (const e of edges) byId.set(e._id, e);
+    best = matchShow(title, [...byId.values()], translationType);
+    // A confident hit means we can stop early and avoid the extra request.
+    if (best && best.score >= 0.7) break;
+  }
+  return best;
 }
 
 // --- Episode list ---------------------------------------------------------
@@ -228,9 +258,18 @@ function dedupeAndSort(sources: ResolvedSource[]): ResolvedSource[] {
     seen.add(s.url);
     return true;
   });
+  // Reliability rank so the most playable source is offered first when
+  // qualities tie. mp4upload and resolved m3u8/clock links play cleanly;
+  // the extension-less fast4speed mp4 is the least reliable.
+  const rank = (s: ResolvedSource): number => {
+    if (/mp4upload/i.test(s.provider)) return 3;
+    if (/fast4speed|yt-?mp4/i.test(s.provider)) return 0;
+    if (s.isM3u8) return 2;
+    return 1;
+  };
   return unique.sort((a, b) => {
     if (b.quality !== a.quality) return b.quality - a.quality;
-    return Number(a.isM3u8) - Number(b.isM3u8);
+    return rank(b) - rank(a);
   });
 }
 

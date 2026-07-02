@@ -22,14 +22,24 @@ function tokenSet(s: string): Set<string> {
   return new Set(normalizeTitle(s).split(' ').filter(Boolean));
 }
 
-/** Jaccard-ish token overlap score in [0,1]. */
+/**
+ * Similarity in [0,1]. Combines token overlap with a containment bonus so a
+ * shorter official title inside a longer provider name (or vice-versa) still
+ * scores highly — common between AniList english and AllAnime romaji names.
+ */
 function tokenScore(a: string, b: string): number {
   const ta = tokenSet(a);
   const tb = tokenSet(b);
   if (ta.size === 0 || tb.size === 0) return 0;
   let inter = 0;
   for (const t of ta) if (tb.has(t)) inter++;
-  return inter / Math.max(ta.size, tb.size);
+  const jaccard = inter / Math.max(ta.size, tb.size);
+  // Containment: how much of the smaller title is covered by the larger.
+  // Only trust it when the smaller title has ≥2 tokens, so a 1-word provider
+  // name can't spuriously "contain-match" everything.
+  const minSize = Math.min(ta.size, tb.size);
+  const containment = minSize >= 2 ? inter / minSize : 0;
+  return Math.max(jaccard, containment * 0.9);
 }
 
 export interface MatchResult {
@@ -64,11 +74,11 @@ export function matchShow(
     }
     // Prefer shows that actually have episodes in the requested type.
     const avail = show.availableEpisodes?.[translationType] ?? 0;
-    if (avail > 0) score += 0.02;
+    if (avail > 0) score += 0.03;
 
     if (!best || score > best.score) best = { show, score };
   }
 
-  if (!best || best.score < 0.5) return null;
+  if (!best || best.score < 0.4) return null;
   return best;
 }

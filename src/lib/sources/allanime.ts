@@ -1,7 +1,5 @@
 import { useSourceMap } from '@/store/sourceMap';
-import { searchShows, getAvailableEpisodes, resolveEpisodeSources } from '../allanime/scraper';
-import { matchShow } from '../allanime/match';
-import { displayTitle } from '../anilist/types';
+import { searchAndMatch, getAvailableEpisodes, resolveEpisodeSources } from '../allanime/scraper';
 import type { SourceProvider, SourceContext, ResolvedSource } from './types';
 
 /**
@@ -16,8 +14,7 @@ async function resolveAllAnime(ctx: SourceContext): Promise<ResolvedSource[]> {
   let showId = ctx.allanimeShowId ?? store.mappings[anilistId]?.allanimeId ?? null;
 
   if (!showId) {
-    const candidates = await searchShows(displayTitle(title), translation);
-    const match = matchShow(title, candidates, translation);
+    const match = await searchAndMatch(title, translation);
     if (!match) return [];
     showId = match.show._id;
     store.setMapping(anilistId, {
