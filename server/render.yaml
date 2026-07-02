@@ -1,0 +1,13 @@
+# One-click deploy on Render (https://render.com).
+# In the Render dashboard: New → Blueprint → point at this repo.
+# Render reads this file and stands up the service.
+services:
+  - type: web
+    name: xlr8-consumet
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true

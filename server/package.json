@@ -1,0 +1,19 @@
+{
+  "name": "xlr8-consumet-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted Consumet source resolver for XLR8 (AniList → provider streams).",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@consumet/extensions": "^1.8.8",
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
