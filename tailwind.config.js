@@ -28,9 +28,10 @@ module.exports = {
       fontFamily: {
         serif: ['SourceSerif4'],
         'serif-italic': ['SourceSerif4Italic'],
-        sans: ['NunitoSans'],
-        'sans-bold': ['NunitoSansBold'],
-        'sans-extra': ['NunitoSansExtra'],
+        sans: ['SFProDisplay'],
+        'sans-medium': ['SFProDisplayMedium'],
+        'sans-bold': ['SFProDisplayBold'],
+        'sans-extra': ['SFProDisplayBold'],
       },
     },
   },

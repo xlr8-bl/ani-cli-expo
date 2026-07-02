@@ -53,7 +53,7 @@ export default function Showcase() {
             sets out to understand the humans she never took the time to know.
           </Text>
           <View style={styles.divider} />
-          <Eyebrow>Rounded sans · all ui text</Eyebrow>
+          <Eyebrow>SF Pro Display · all ui text</Eyebrow>
           <Text variant="title" style={{ marginTop: 8 }}>
             Frieren
           </Text>

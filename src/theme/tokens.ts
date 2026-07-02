@@ -92,13 +92,17 @@ export const radius = {
 
 // --- Typography families -------------------------------------------------
 // Loaded via expo-font in the root layout. Serif = editorial hero/synopsis;
-// rounded sans = all UI text, headings, labels, buttons.
+// SF Pro Display = all UI text, headings, labels, buttons (bundled OTFs in
+// assets/fonts — identical rendering on iOS and Android).
 export const fonts = {
   serif: 'SourceSerif4',
   serifItalic: 'SourceSerif4Italic',
-  sans: 'NunitoSans',
-  sansBold: 'NunitoSansBold',
-  sansExtra: 'NunitoSansExtra',
+  sans: 'SFProDisplay',
+  sansMedium: 'SFProDisplayMedium',
+  sansBold: 'SFProDisplayBold',
+  // Heaviest upright weight available; titles/headings share Bold and rely on
+  // size for hierarchy.
+  sansExtra: 'SFProDisplayBold',
 } as const;
 
 // --- Glass / blur --------------------------------------------------------

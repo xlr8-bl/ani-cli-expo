@@ -61,13 +61,13 @@ const variantStyle: Record<TextVariant, object> = {
     color: colors.text,
   },
   meta: {
-    fontFamily: fonts.sans,
+    fontFamily: fonts.sansMedium,
     fontSize: 13,
     lineHeight: 18,
     color: colors.textMuted,
   },
   eyebrow: {
-    fontFamily: fonts.sansBold,
+    fontFamily: fonts.sansMedium,
     fontSize: 12,
     lineHeight: 16,
     color: colors.eyebrow,

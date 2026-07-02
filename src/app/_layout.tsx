@@ -11,23 +11,18 @@ import {
   SourceSerif4_400Regular,
   SourceSerif4_400Regular_Italic,
 } from '@expo-google-fonts/source-serif-4';
-import {
-  NunitoSans_400Regular,
-  NunitoSans_700Bold,
-  NunitoSans_800ExtraBold,
-} from '@expo-google-fonts/nunito-sans';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  // Map Google Font weights to the family names used across the app (tokens.fonts).
+  // Family names here must match tokens.fonts. UI sans = bundled SF Pro Display.
   const [loaded] = useFonts({
     SourceSerif4: SourceSerif4_400Regular,
     SourceSerif4Italic: SourceSerif4_400Regular_Italic,
-    NunitoSans: NunitoSans_400Regular,
-    NunitoSansBold: NunitoSans_700Bold,
-    NunitoSansExtra: NunitoSans_800ExtraBold,
+    SFProDisplay: require('@/assets/fonts/SFProDisplay-Regular.otf'),
+    SFProDisplayMedium: require('@/assets/fonts/SFProDisplay-Medium.otf'),
+    SFProDisplayBold: require('@/assets/fonts/SFProDisplay-Bold.otf'),
   });
 
   useEffect(() => {
