@@ -1,4 +1,4 @@
-import { View, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './Text';
@@ -20,6 +20,7 @@ export function EpisodeCard({
   airedAt,
   meta,
   filler,
+  recap,
   isNew,
   onPress,
   onDownload,
@@ -35,6 +36,7 @@ export function EpisodeCard({
   /** Overrides the computed duration/date line (e.g. "Episode 39 · 2h ago"). */
   meta?: string;
   filler?: boolean;
+  recap?: boolean;
   isNew?: boolean;
   onPress?: () => void;
   onDownload?: () => void;
@@ -69,10 +71,13 @@ export function EpisodeCard({
             </Text>
           </View>
         )}
-        {onDownload && (
-          <Pressable onPress={onDownload} hitSlop={10} style={styles.downloadChip}>
-            <Ionicons name="download-outline" size={13} color={colors.text} />
-          </Pressable>
+        {/* Filler/recap warning lives on the artwork where it can't be missed */}
+        {(filler || recap) && (
+          <View style={[styles.fillerTag, recap && !filler && styles.recapTag]}>
+            <Text variant="eyebrow" color="#FFFFFF" style={styles.fillerText}>
+              {filler ? 'Filler' : 'Recap'}
+            </Text>
+          </View>
         )}
       </View>
 
@@ -80,17 +85,23 @@ export function EpisodeCard({
         <Text variant="label" numberOfLines={2} style={styles.title}>
           {title || `Episode ${number}`}
         </Text>
-        {(metaLine || filler) && (
+        {metaLine ? (
           <View style={styles.metaRow}>
-            {metaLine ? <Text variant="meta">{metaLine}</Text> : null}
-            {filler && (
-              <Text variant="meta" color="#C77D3B" style={metaLine ? { marginLeft: 8 } : undefined}>
-                Filler
-              </Text>
-            )}
+            <Text variant="meta">{metaLine}</Text>
           </View>
-        )}
+        ) : null}
       </View>
+
+      {onDownload && (
+        <TouchableOpacity
+          onPress={onDownload}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.downloadBtn}
+        >
+          <Ionicons name="download-outline" size={17} color={colors.text} />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -167,16 +178,31 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     letterSpacing: 0.6,
   },
-  downloadChip: {
+  fillerTag: {
     position: 'absolute',
     right: 6,
-    bottom: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    top: 6,
+    backgroundColor: '#C7601E',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  recapTag: {
+    backgroundColor: '#4B4E55',
+  },
+  fillerText: {
+    fontSize: 9,
+    lineHeight: 12,
+    letterSpacing: 0.6,
+  },
+  downloadBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: colors.surface,
+    marginLeft: 12,
   },
   textCol: {
     flex: 1,

@@ -141,6 +141,7 @@ function EpisodeRow({
       duration={duration}
       airedAt={jikan?.aired}
       filler={jikan?.filler}
+      recap={jikan?.recap}
       isNew={episode.isNew}
       onDownload={notYetDownloadable}
     />

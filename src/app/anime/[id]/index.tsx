@@ -164,6 +164,7 @@ export default function AnimeDetail() {
                     duration={seasonMedia?.duration}
                     airedAt={jikan?.aired}
                     filler={jikan?.filler}
+                    recap={jikan?.recap}
                     isNew={ep.isNew}
                     onDownload={notYetDownloadable}
                   />

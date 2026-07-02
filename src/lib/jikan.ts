@@ -38,7 +38,9 @@ export function useEpisodeTitles(malId: number | null | undefined, page: number)
     queryFn: () => fetchEpisodePage(malId!, page),
     enabled: typeof malId === 'number' && malId > 0 && page > 0,
     staleTime: 1000 * 60 * 60 * 24,
-    retry: 1,
+    // Filler/recap flags matter — retry through Jikan's rate-limit hiccups.
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     select: (episodes) => {
       const byNumber = new Map<number, JikanEpisode>();
       for (const ep of episodes) byNumber.set(ep.mal_id, ep);
