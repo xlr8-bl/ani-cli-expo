@@ -36,6 +36,43 @@ export interface AiringItem {
   media: Media;
 }
 
+export interface StreamingEpisode {
+  title: string | null;
+  thumbnail: string | null;
+  url: string | null;
+  site: string | null;
+}
+
+export interface RelationNode extends Media {
+  type: 'ANIME' | 'MANGA';
+}
+
+export interface RelationEdge {
+  relationType: string;
+  node: RelationNode;
+}
+
+export interface CharacterEdge {
+  role: string;
+  node: {
+    id: number;
+    name: { full: string };
+    image: { large: string | null };
+  };
+  voiceActors: {
+    id: number;
+    name: { full: string };
+    image: { large: string | null };
+  }[];
+}
+
+/** Full detail payload — Media plus episodes/relations/cast. */
+export interface MediaDetail extends Media {
+  streamingEpisodes: StreamingEpisode[];
+  relations: { edges: RelationEdge[] };
+  characters: { edges: CharacterEdge[] };
+}
+
 // Filler words stay lowercase mid-title ("Attack on Titan", "Fist of the
 // North Star") but are capitalized when they lead the title.
 const MINOR_WORDS = new Set([

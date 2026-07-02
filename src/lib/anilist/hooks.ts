@@ -7,7 +7,7 @@ import {
   JUST_AIRED_QUERY,
   DETAIL_QUERY,
 } from './queries';
-import type { AiringItem, Media } from './types';
+import type { AiringItem, Media, MediaDetail } from './types';
 
 interface PageMedia {
   Page: { media: Media[] };
@@ -79,7 +79,7 @@ export function useJustAired(days = 7) {
 export function useAnimeDetail(id: number) {
   return useQuery({
     queryKey: ['anilist', 'detail', id],
-    queryFn: () => gql<{ Media: Media }>(DETAIL_QUERY, { id }),
+    queryFn: () => gql<{ Media: MediaDetail }>(DETAIL_QUERY, { id }),
     staleTime: STALE,
     select: (d) => d.Media,
     enabled: Number.isFinite(id) && id > 0,

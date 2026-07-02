@@ -65,6 +65,48 @@ export const DETAIL_QUERY = `
   query Detail($id: Int!) {
     Media(id: $id, type: ANIME) {
       ${MEDIA_FIELDS}
+      streamingEpisodes {
+        title
+        thumbnail
+        url
+        site
+      }
+      relations {
+        edges {
+          relationType
+          node {
+            id
+            type
+            title { romaji english native }
+            coverImage { extraLarge large color }
+            bannerImage
+            genres
+            averageScore
+            format
+            status
+            season
+            seasonYear
+            episodes
+            description
+            nextAiringEpisode { episode airingAt }
+          }
+        }
+      }
+      characters(perPage: 12, sort: [ROLE, RELEVANCE]) {
+        edges {
+          role
+          node {
+            id
+            name { full }
+            image { large }
+          }
+          voiceActors(language: JAPANESE, sort: RELEVANCE) {
+            id
+            name { full }
+            image { large }
+          }
+        }
+      }
     }
   }
 `;
