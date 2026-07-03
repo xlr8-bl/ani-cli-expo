@@ -11,7 +11,6 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { EpisodeCard } from '@/components/ui/EpisodeCard';
 import { PosterCard } from '@/components/ui/PosterCard';
 import { CastCard } from '@/components/ui/CastCard';
-import { FilterPill } from '@/components/ui/FilterPill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/tokens';
 import { useAnimeDetail } from '@/lib/anilist/hooks';
@@ -45,33 +44,23 @@ export default function AnimeDetail() {
   const media = detail.data;
   const title = media ? displayTitle(media.title) : ' ';
 
-  // --- Season-aware episodes ------------------------------------------------
-  // The episode list is bound to a selected season (default: this entry).
-  // Selecting a pill swaps the list in place by fetching that season's detail;
-  // the chain grows as more of it is discovered through each season's relations.
-  const [seasonId, setSeasonId] = useState<number | null>(null);
-  const activeSeasonId = seasonId ?? Number(id);
-  const seasonDetail = useAnimeDetail(activeSeasonId);
-  const seasonMedia = seasonDetail.data;
-
+  // --- Season navigation ----------------------------------------------------
+  // Everything is bound to the OPENED show — no in-place season swapping. The
+  // episode list always starts at episode 1 of this show, and playback always
+  // resolves this exact season (that's what fixes "og Bleach plays TYBW" and
+  // the random-season bugs). Other seasons are navigated to as their own pages.
   const seasons = useMemo(() => {
-    const byId = new Map<number, SeasonEntry>();
-    for (const s of media ? seasonChain(media) : []) byId.set(s.id, s);
-    for (const s of seasonMedia && seasonMedia !== media ? seasonChain(seasonMedia) : [])
-      if (!byId.has(s.id)) byId.set(s.id, s);
-    const sorted = [...byId.values()].sort((a, b) => a.year - b.year);
+    const chain = media ? seasonChain(media) : [];
+    const sorted = [...chain].sort((a, b) => a.year - b.year);
     const baseTitle = sorted[0]?.title ?? '';
-    return sorted.map((s, i) => ({
-      ...s,
-      label: seasonLabel(s.title, baseTitle, i + 1),
-    }));
-  }, [media, seasonMedia]);
+    return sorted.map((s, i) => ({ ...s, label: seasonLabel(s.title, baseTitle, i + 1) }));
+  }, [media]);
 
-  const episodes = useMemo(() => (seasonMedia ? buildEpisodeList(seasonMedia) : []), [seasonMedia]);
+  const episodes = useMemo(() => (media ? buildEpisodeList(media) : []), [media]);
   // Episode names resolve through a chain of sources so nothing shows as a
   // bare "Episode N": streaming platforms (AniList) → MAL (Jikan) → ani.zip.
-  const episodeNames = useEpisodeTitles(seasonMedia?.idMal, 1);
-  const aniZip = useAniZipEpisodes(seasonMedia?.id);
+  const episodeNames = useEpisodeTitles(media?.idMal, 1);
+  const aniZip = useAniZipEpisodes(media?.id);
   const preview = episodes.slice(0, EPISODE_PREVIEW);
 
   const related = useMemo(() => (media ? relatedAnime(media) : []), [media]);
@@ -80,8 +69,10 @@ export default function AnimeDetail() {
   // Episode tapped for playback → source picker sheet.
   const [playEpisode, setPlayEpisode] = useState<number | null>(null);
 
+  const goToSeason = (seasonAnilistId: number) =>
+    router.push({ pathname: '/anime/[id]', params: { id: String(seasonAnilistId) } });
   const openEpisodes = () =>
-    router.push({ pathname: '/anime/[id]/episodes', params: { id: String(activeSeasonId) } });
+    router.push({ pathname: '/anime/[id]/episodes', params: { id: String(id) } });
 
   return (
     <>
@@ -123,53 +114,49 @@ export default function AnimeDetail() {
           <SectionHeader title="Synopsis" />
           <Synopsis text={plainDescription(media.description)} />
 
-          {/* Episodes — season aware. Pills swap the list in place; the full
-              list moves to its own page past the preview threshold. */}
+          {/* Seasons — a row of season cards. The current season is highlighted;
+              tapping another opens its own page (fresh, from episode 1). */}
+          {seasons.length > 1 && (
+            <>
+              <SectionHeader title="Seasons" />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.seasonRow}
+              >
+                {seasons.map((s) => (
+                  <SeasonCard
+                    key={s.id}
+                    label={s.label}
+                    cover={s.cover}
+                    color={s.color}
+                    episodes={s.episodes}
+                    active={s.id === Number(id)}
+                    onPress={() => s.id !== Number(id) && goToSeason(s.id)}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {/* Episodes — always this show's episodes, from episode 1. */}
           <SectionHeader
             title="Episodes"
             onSeeAll={episodes.length > EPISODE_PREVIEW ? openEpisodes : undefined}
             seeAllLabel={episodes.length > EPISODE_PREVIEW ? `All ${episodes.length}` : undefined}
           />
-          {seasons.length > 1 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.pillRow}
-            >
-              {seasons.map((s) => (
-                <FilterPill
-                  key={s.id}
-                  label={s.label}
-                  active={s.id === activeSeasonId}
-                  onPress={() => setSeasonId(s.id)}
-                />
-              ))}
-            </ScrollView>
-          )}
-          {seasonDetail.isPending ? (
-            <View style={{ paddingHorizontal: 20, gap: 14, marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', gap: 14 }}>
-                <Skeleton style={{ width: 148, height: 83, borderRadius: 14 }} />
-                <Skeleton style={{ flex: 1, height: 16, borderRadius: 8, alignSelf: 'center' }} />
-              </View>
-              <View style={{ flexDirection: 'row', gap: 14 }}>
-                <Skeleton style={{ width: 148, height: 83, borderRadius: 14 }} />
-                <Skeleton style={{ flex: 1, height: 16, borderRadius: 8, alignSelf: 'center' }} />
-              </View>
-            </View>
-          ) : (
-            <>
-              {preview.map((ep) => {
+          <>
+            {preview.map((ep) => {
                 const jikan = episodeNames.data?.get(ep.number);
                 const zip = aniZip.data?.get(ep.number);
                 return (
                   <EpisodeCard
-                    key={`${activeSeasonId}-${ep.number}`}
+                    key={ep.number}
                     number={ep.number}
                     title={ep.title ?? jikan?.title ?? zip?.title}
-                    image={ep.thumbnail ?? zip?.image ?? seasonMedia?.coverImage.large}
-                    placeholderColor={seasonMedia?.coverImage.color ?? colors.surfaceAlt}
-                    duration={seasonMedia?.duration}
+                    image={ep.thumbnail ?? zip?.image ?? media.coverImage.large}
+                    placeholderColor={media.coverImage.color ?? colors.surfaceAlt}
+                    duration={media.duration}
                     airedAt={jikan?.aired ?? zip?.airDate}
                     filler={jikan?.filler}
                     recap={jikan?.recap}
@@ -185,8 +172,7 @@ export default function AnimeDetail() {
                   <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </Pressable>
               )}
-            </>
-          )}
+          </>
 
           {/* Cast */}
           {cast.length > 0 && (
@@ -256,10 +242,10 @@ export default function AnimeDetail() {
         <SourceSheet
           visible={playEpisode !== null}
           onClose={() => setPlayEpisode(null)}
-          anilistId={activeSeasonId}
-          title={seasonMedia?.title ?? media.title}
+          anilistId={Number(id)}
+          title={media.title}
           episodeNumber={playEpisode}
-          totalEpisodes={episodes.length || seasonMedia?.episodes}
+          totalEpisodes={episodes.length || media.episodes}
         />
       )}
     </>
@@ -274,11 +260,14 @@ interface SeasonEntry {
   id: number;
   year: number;
   title: string;
+  cover: string | null;
+  color: string | null;
+  episodes: number | null;
 }
 
 /** Direct prequel/sequel chain (this show included), unordered. */
 function seasonChain(media: MediaDetail): SeasonEntry[] {
-  const entries = media.relations.edges
+  const entries: SeasonEntry[] = media.relations.edges
     .filter(
       (e) =>
         (e.relationType === 'SEQUEL' || e.relationType === 'PREQUEL') &&
@@ -289,12 +278,18 @@ function seasonChain(media: MediaDetail): SeasonEntry[] {
       id: e.node.id,
       year: e.node.seasonYear ?? (e.relationType === 'PREQUEL' ? -1 : 9999),
       title: displayTitle(e.node.title),
+      cover: e.node.coverImage.large ?? e.node.coverImage.extraLarge,
+      color: e.node.coverImage.color,
+      episodes: e.node.episodes,
     }));
   if (entries.length === 0) return [];
   entries.push({
     id: media.id,
     year: media.seasonYear ?? 0,
     title: displayTitle(media.title),
+    cover: media.coverImage.large ?? media.coverImage.extraLarge,
+    color: media.coverImage.color,
+    episodes: media.episodes,
   });
   return entries;
 }
@@ -437,6 +432,52 @@ function Hero({ media }: { media: MediaDetail }) {
   );
 }
 
+/** A season entry in the Seasons row — cover + label; highlighted when current. */
+function SeasonCard({
+  label,
+  cover,
+  color,
+  episodes,
+  active,
+  onPress,
+}: {
+  label: string;
+  cover: string | null;
+  color: string | null;
+  episodes: number | null;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.seasonCard}>
+      <View style={[styles.seasonThumbWrap, active && styles.seasonThumbActive]}>
+        <Image
+          source={cover ?? undefined}
+          style={[styles.seasonThumb, { backgroundColor: color ?? colors.surfaceAlt }]}
+          contentFit="cover"
+          transition={200}
+        />
+        {active && (
+          <View style={styles.seasonNow}>
+            <Text variant="eyebrow" color="#FFFFFF" style={styles.seasonNowText}>
+              Now
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text
+        variant="meta"
+        color={active ? colors.text : colors.textMuted}
+        numberOfLines={2}
+        style={styles.seasonLabel}
+      >
+        {label}
+      </Text>
+      {episodes ? <Text variant="meta" style={styles.seasonEps}>{episodes} ep</Text> : null}
+    </Pressable>
+  );
+}
+
 /** Watchlist toggle + back, in the sticky header. */
 function HeaderButtons({ media, onBack }: { media?: MediaDetail; onBack: () => void }) {
   const watchlist = useLibrary((s) => s.watchlist);
@@ -517,11 +558,51 @@ const styles = StyleSheet.create({
     marginTop: 8,
     alignSelf: 'flex-start',
   },
-  pillRow: {
+  seasonRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 22,
+  },
+  seasonCard: {
+    width: 104,
+  },
+  seasonThumbWrap: {
+    width: 104,
+    height: 62,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  seasonThumbActive: {
+    borderColor: colors.accent,
+  },
+  seasonThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  seasonNow: {
+    position: 'absolute',
+    left: 5,
+    bottom: 5,
+    backgroundColor: colors.accent,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  seasonNowText: {
+    fontSize: 9,
+    lineHeight: 12,
+  },
+  seasonLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  seasonEps: {
+    marginTop: 1,
+    fontSize: 11,
   },
   rail: {
     flexDirection: 'row',

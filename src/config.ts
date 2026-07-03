@@ -18,4 +18,4 @@ export const CONSUMET_PROVIDER = 'hianime';
  * Tried before AllAnime when on; silently falls back to AllAnime if HiAnime's
  * anti-bot or megacloud decryption fails.
  */
-export const HIANIME_ENABLED = true;
+export const HIANIME_ENABLED = false;

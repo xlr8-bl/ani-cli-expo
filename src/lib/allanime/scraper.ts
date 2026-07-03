@@ -254,11 +254,16 @@ export async function resolveEpisodeSources(
 /** Drop duplicate URLs; sort by quality desc, mp4 before hls at equal quality. */
 function dedupeAndSort(sources: ResolvedSource[]): ResolvedSource[] {
   const seen = new Set<string>();
-  const unique = sources.filter((s) => {
+  let unique = sources.filter((s) => {
     if (seen.has(s.url)) return false;
     seen.add(s.url);
     return true;
   });
+
+  // The extension-less fast4speed (Yt-mp4) mp4 doesn't play in expo-video, so
+  // hide it whenever a working source exists; keep it only as a last resort.
+  const isFast4 = (s: ResolvedSource) => /fast4speed|yt-?mp4/i.test(s.provider);
+  if (unique.some((s) => !isFast4(s))) unique = unique.filter((s) => !isFast4(s));
   // Reliability rank so the most playable source is offered first when
   // qualities tie. mp4upload and resolved m3u8/clock links play cleanly;
   // the extension-less fast4speed mp4 is the least reliable.
