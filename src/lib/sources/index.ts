@@ -1,17 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { consumetProvider } from './consumet';
+import { hiAnimeProvider } from './hianime';
 import { allAnimeProvider } from './allanime';
 import type { SourceContext, ResolvedSource, SourceProvider } from './types';
 
 export type { SourceContext, ResolvedSource } from './types';
 
 /**
- * Source providers in priority order. Consumet (self-hosted server) is tried
- * first when configured; the in-app AllAnime scraper is the always-available
- * default and fallback. Adding a provider (e.g. an in-app HiAnime port) is a
- * one-line change here.
+ * Source providers in priority order:
+ *   Consumet (self-hosted server, if configured) → HiAnime (in-app, real
+ *   subs/dub/quality when it works) → AllAnime (always-available fallback).
+ * Each is tried until one yields streams.
  */
-const PROVIDERS: SourceProvider[] = [consumetProvider, allAnimeProvider];
+const PROVIDERS: SourceProvider[] = [consumetProvider, hiAnimeProvider, allAnimeProvider];
 
 export interface ResolveResult {
   sources: ResolvedSource[];

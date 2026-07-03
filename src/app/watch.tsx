@@ -39,8 +39,16 @@ export default function Watch() {
   );
 
   useEventListener(player, 'statusChange', ({ status: s }) => {
-    if (s === 'readyToPlay') setStatus('ready');
-    else if (s === 'error') setStatus('error');
+    if (s === 'readyToPlay') {
+      setStatus('ready');
+      // Auto-enable an embedded subtitle track if the stream carries one.
+      const tracks = player.availableSubtitleTracks;
+      if (tracks && tracks.length > 0 && !player.subtitleTrack) {
+        player.subtitleTrack = tracks[0];
+      }
+    } else if (s === 'error') {
+      setStatus('error');
+    }
   });
 
   useEffect(() => {

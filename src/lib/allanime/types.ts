@@ -27,8 +27,10 @@ export interface ResolvedSource {
   /** m3u8 vs mp4. */
   isM3u8: boolean;
   provider: string;
-  /** Optional subtitle track url. */
+  /** Optional subtitle track url (first/default). */
   subtitle?: string | null;
+  /** All soft subtitle tracks, when the provider supplies them. */
+  subtitles?: { url: string; lang: string }[];
   /** Headers the CDN needs (Referer/UA) when fetching the stream. */
   headers: Record<string, string>;
 }
