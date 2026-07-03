@@ -14,6 +14,7 @@ import { CastCard } from '@/components/ui/CastCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/tokens';
 import { useAnimeDetail } from '@/lib/anilist/hooks';
+import { useSeasonChain } from '@/lib/anilist/seasons';
 import {
   displayTitle,
   plainDescription,
@@ -47,14 +48,11 @@ export default function AnimeDetail() {
   // --- Season navigation ----------------------------------------------------
   // Everything is bound to the OPENED show — no in-place season swapping. The
   // episode list always starts at episode 1 of this show, and playback always
-  // resolves this exact season (that's what fixes "og Bleach plays TYBW" and
-  // the random-season bugs). Other seasons are navigated to as their own pages.
-  const seasons = useMemo(() => {
-    const chain = media ? seasonChain(media) : [];
-    const sorted = [...chain].sort((a, b) => a.year - b.year);
-    const baseTitle = sorted[0]?.title ?? '';
-    return sorted.map((s, i) => ({ ...s, label: seasonLabel(s.title, baseTitle, i + 1) }));
-  }, [media]);
+  // resolves this exact season. The season row is the FULL prequel/sequel
+  // chain (traversed, not one-hop) so labels + navigation are stable on every
+  // season's page.
+  const seasonChainQuery = useSeasonChain(Number(id));
+  const seasons = seasonChainQuery.data ?? [];
 
   const episodes = useMemo(() => (media ? buildEpisodeList(media) : []), [media]);
   // Episode names resolve through a chain of sources so nothing shows as a
@@ -252,82 +250,7 @@ export default function AnimeDetail() {
   );
 }
 
-// --- Seasons & related derivation -----------------------------------------
-
-const SEASON_FORMATS = new Set(['TV', 'TV_SHORT', 'ONA']);
-
-interface SeasonEntry {
-  id: number;
-  year: number;
-  title: string;
-  cover: string | null;
-  color: string | null;
-  episodes: number | null;
-}
-
-/** Direct prequel/sequel chain (this show included), unordered. */
-function seasonChain(media: MediaDetail): SeasonEntry[] {
-  const entries: SeasonEntry[] = media.relations.edges
-    .filter(
-      (e) =>
-        (e.relationType === 'SEQUEL' || e.relationType === 'PREQUEL') &&
-        e.node.type === 'ANIME' &&
-        SEASON_FORMATS.has(e.node.format ?? ''),
-    )
-    .map((e) => ({
-      id: e.node.id,
-      year: e.node.seasonYear ?? (e.relationType === 'PREQUEL' ? -1 : 9999),
-      title: displayTitle(e.node.title),
-      cover: e.node.coverImage.large ?? e.node.coverImage.extraLarge,
-      color: e.node.coverImage.color,
-      episodes: e.node.episodes,
-    }));
-  if (entries.length === 0) return [];
-  entries.push({
-    id: media.id,
-    year: media.seasonYear ?? 0,
-    title: displayTitle(media.title),
-    cover: media.coverImage.large ?? media.coverImage.extraLarge,
-    color: media.coverImage.color,
-    episodes: media.episodes,
-  });
-  return entries;
-}
-
-/**
- * Pill label: "Season N" plus the season's actual name — the part of its
- * title that differs from the base show ("Season 2 · Shibuya Incident",
- * "Season 4 · The Final Season"). Falls back to a bare "Season N" when the
- * title carries no distinct name.
- */
-function seasonLabel(entryTitle: string, baseTitle: string, ordinal: number): string {
-  const base = baseTitle.split(/\s+/);
-  const words = entryTitle.split(/\s+/);
-  let common = 0;
-  while (
-    common < base.length &&
-    common < words.length &&
-    normalizeWord(words[common]) === normalizeWord(base[common])
-  ) {
-    common++;
-  }
-  const remainder = words
-    .slice(common)
-    .join(' ')
-    .replace(/^[\s:\-–—·~]+/, '')
-    .trim();
-  // Strip a leading "Season N" / "Nth Season" from the distinct part so the
-  // pill never reads "Season 3 · Season 3"; keep whatever name remains.
-  const name = remainder
-    .replace(/^(?:season\s*\d+|\d+(?:st|nd|rd|th)\s+season)\s*[:\-–—·~]?\s*/i, '')
-    .trim();
-  if (!name) return `Season ${ordinal}`;
-  return `Season ${ordinal} · ${name}`;
-}
-
-function normalizeWord(w: string): string {
-  return w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-}
+// --- Related derivation ---------------------------------------------------
 
 /** Everything else related (side stories, movies, specials, alt versions). */
 function relatedAnime(media: MediaDetail): RelationEdge[] {

@@ -31,6 +31,7 @@ function cleanTitle(t: string | null | undefined): string | null {
   const s = t.replace(/`/g, "'").trim();
   // TVDB placeholder names are worse than our own fallback.
   if (/^episode\s+\d+$/i.test(s)) return null;
+  if (/^untitled$/i.test(s)) return null;
   return s || null;
 }
 
