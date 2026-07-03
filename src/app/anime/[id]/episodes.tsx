@@ -14,7 +14,6 @@ import { buildEpisodeList, episodeRanges, Episode } from '@/lib/episodes';
 import { useEpisodeTitles, JikanEpisode } from '@/lib/jikan';
 import { useAniZipEpisodes, AniZipEpisode } from '@/lib/anizip';
 import { notYetDownloadable } from './index';
-import { SourceSheet } from '@/components/player/SourceSheet';
 
 const RANGE_SIZE = 100;
 
@@ -56,7 +55,8 @@ export default function EpisodeListScreen() {
   // the other sources miss.
   const aniZip = useAniZipEpisodes(media?.id);
 
-  const [playEpisode, setPlayEpisode] = useState<number | null>(null);
+  const playEpisode = (n: number) =>
+    router.push({ pathname: '/anime/[id]/watch', params: { id: String(id), ep: String(n) } });
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -119,20 +119,9 @@ export default function EpisodeListScreen() {
               duration={media?.duration}
               fallbackImage={media?.coverImage.large ?? undefined}
               placeholderColor={media?.coverImage.color ?? colors.surfaceAlt}
-              onPlay={() => setPlayEpisode(item.number)}
+              onPlay={() => playEpisode(item.number)}
             />
           )}
-        />
-      )}
-
-      {media && (
-        <SourceSheet
-          visible={playEpisode !== null}
-          onClose={() => setPlayEpisode(null)}
-          anilistId={media.id}
-          title={media.title}
-          episodeNumber={playEpisode}
-          totalEpisodes={episodes.length || media.episodes}
         />
       )}
     </View>

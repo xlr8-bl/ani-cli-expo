@@ -26,7 +26,6 @@ import { buildEpisodeList } from '@/lib/episodes';
 import { useEpisodeTitles } from '@/lib/jikan';
 import { useAniZipEpisodes } from '@/lib/anizip';
 import { useLibrary } from '@/store/library';
-import { SourceSheet } from '@/components/player/SourceSheet';
 
 /** Placeholder until the downloads milestone lands. */
 export function notYetDownloadable() {
@@ -64,8 +63,9 @@ export default function AnimeDetail() {
   const related = useMemo(() => (media ? relatedAnime(media) : []), [media]);
   const cast = media?.characters.edges ?? [];
 
-  // Episode tapped for playback → source picker sheet.
-  const [playEpisode, setPlayEpisode] = useState<number | null>(null);
+  // Episode tap → custom player screen (auto-resolves + plays).
+  const playEpisode = (n: number) =>
+    router.push({ pathname: '/anime/[id]/watch', params: { id: String(id), ep: String(n) } });
 
   const goToSeason = (seasonAnilistId: number) =>
     router.push({ pathname: '/anime/[id]', params: { id: String(seasonAnilistId) } });
@@ -108,6 +108,14 @@ export default function AnimeDetail() {
         </View>
       ) : media ? (
         <>
+          {/* Start playback from the beginning */}
+          <Pressable style={styles.playCta} onPress={() => playEpisode(1)}>
+            <Ionicons name="play" size={18} color={colors.textInverse} />
+            <Text variant="button" color={colors.textInverse} style={{ marginLeft: 8 }}>
+              Play Episode 1
+            </Text>
+          </Pressable>
+
           {/* Synopsis — the serif editorial moment, clamped with See more */}
           <SectionHeader title="Synopsis" />
           <Synopsis text={plainDescription(media.description)} />
@@ -159,7 +167,7 @@ export default function AnimeDetail() {
                     filler={jikan?.filler}
                     recap={jikan?.recap}
                     isNew={ep.isNew}
-                    onPress={() => setPlayEpisode(ep.number)}
+                    onPress={() => playEpisode(ep.number)}
                     onDownload={notYetDownloadable}
                   />
                 );
@@ -235,17 +243,6 @@ export default function AnimeDetail() {
         </>
       ) : null}
       </ScrollBlendScreen>
-
-      {media && (
-        <SourceSheet
-          visible={playEpisode !== null}
-          onClose={() => setPlayEpisode(null)}
-          anilistId={Number(id)}
-          title={media.title}
-          episodeNumber={playEpisode}
-          totalEpisodes={episodes.length || media.episodes}
-        />
-      )}
     </>
   );
 }
@@ -472,6 +469,17 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 26,
     lineHeight: 31,
+  },
+  playCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingVertical: 14,
+    marginHorizontal: 20,
+    marginBottom: 22,
+    marginTop: -4,
   },
   synopsisWrap: {
     paddingHorizontal: 20,
