@@ -40,6 +40,10 @@ export const useSourceMap = create<SourceMapState>()(
     {
       name: 'xlr8-source-map',
       storage: createJSONStorage(() => AsyncStorage),
+      // Bumped when the matcher changes so stale/wrong mappings (e.g. a season
+      // matched before season-aware matching) are dropped and re-resolved.
+      version: 2,
+      migrate: () => ({ mappings: {} }),
     },
   ),
 );

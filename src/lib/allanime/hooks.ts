@@ -13,6 +13,7 @@ export function useAllAnimeShow(
   anilistId: number | undefined,
   title: MediaTitle | undefined,
   translationType: TranslationType,
+  totalEpisodes?: number | null,
 ) {
   const mappings = useSourceMap((s) => s.mappings);
   const setMapping = useSourceMap((s) => s.setMapping);
@@ -26,7 +27,7 @@ export function useAllAnimeShow(
       if (cached) {
         return { id: cached.allanimeId, name: cached.allanimeName, confident: true, manual: cached.manual };
       }
-      const match = await searchAndMatch(title!, translationType);
+      const match = await searchAndMatch(title!, totalEpisodes, translationType);
       if (!match) {
         return { id: null, name: null, confident: false, manual: false };
       }

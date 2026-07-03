@@ -14,7 +14,7 @@ async function resolveAllAnime(ctx: SourceContext): Promise<ResolvedSource[]> {
   let showId = ctx.allanimeShowId ?? store.mappings[anilistId]?.allanimeId ?? null;
 
   if (!showId) {
-    const match = await searchAndMatch(title, translation);
+    const match = await searchAndMatch(title, ctx.totalEpisodes, translation);
     if (!match) return [];
     showId = match.show._id;
     store.setMapping(anilistId, {

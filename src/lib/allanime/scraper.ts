@@ -93,6 +93,7 @@ export async function searchShows(
  */
 export async function searchAndMatch(
   title: MediaTitle,
+  aniEpisodes: number | null | undefined,
   translationType: TranslationType,
 ): Promise<MatchResult | null> {
   const queries = [title.romaji, title.english, title.native].filter(
@@ -106,9 +107,9 @@ export async function searchAndMatch(
   for (const query of queries.slice(0, 2)) {
     const edges = await searchShows(query, translationType);
     for (const e of edges) byId.set(e._id, e);
-    best = matchShow(title, [...byId.values()], translationType);
-    // A confident hit means we can stop early and avoid the extra request.
-    if (best && best.score >= 0.7) break;
+    best = matchShow(title, aniEpisodes, [...byId.values()], translationType);
+    // A near-exact hit (name + episode count) means we can stop early.
+    if (best && best.score >= 0.95) break;
   }
   return best;
 }

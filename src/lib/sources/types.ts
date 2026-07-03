@@ -8,6 +8,8 @@ export interface SourceContext {
   anilistId: number;
   title: MediaTitle;
   episodeNumber: number;
+  /** Total episodes in this season — used to disambiguate seasons on match. */
+  totalEpisodes?: number | null;
   translation: TranslationType;
   /** AllAnime show id if already matched, so the AllAnime provider can skip search. */
   allanimeShowId?: string | null;

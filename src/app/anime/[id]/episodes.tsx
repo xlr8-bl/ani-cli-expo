@@ -132,6 +132,7 @@ export default function EpisodeListScreen() {
           anilistId={media.id}
           title={media.title}
           episodeNumber={playEpisode}
+          totalEpisodes={episodes.length || media.episodes}
         />
       )}
     </View>

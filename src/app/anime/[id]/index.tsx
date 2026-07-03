@@ -259,6 +259,7 @@ export default function AnimeDetail() {
           anilistId={activeSeasonId}
           title={seasonMedia?.title ?? media.title}
           episodeNumber={playEpisode}
+          totalEpisodes={episodes.length || seasonMedia?.episodes}
         />
       )}
     </>

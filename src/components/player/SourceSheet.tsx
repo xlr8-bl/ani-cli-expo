@@ -26,12 +26,15 @@ export function SourceSheet({
   anilistId,
   title,
   episodeNumber,
+  totalEpisodes,
 }: {
   visible: boolean;
   onClose: () => void;
   anilistId: number;
   title: MediaTitle;
   episodeNumber: number | null;
+  /** Total episodes in this season — disambiguates seasons when matching. */
+  totalEpisodes?: number | null;
 }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -40,13 +43,13 @@ export function SourceSheet({
 
   // Prewarm the AllAnime match/mapping (also powers the dub hint + no-match
   // message). The actual resolution runs through the provider chain below.
-  const show = useAllAnimeShow(anilistId, title, translation);
+  const show = useAllAnimeShow(anilistId, title, translation, totalEpisodes);
   const showId = show.data?.id ?? null;
   const episodes = useAllAnimeEpisodes(showId);
 
   const sources = useEpisodeSources(
     episodeNumber != null
-      ? { anilistId, title, episodeNumber, translation, allanimeShowId: showId }
+      ? { anilistId, title, episodeNumber, totalEpisodes, translation, allanimeShowId: showId }
       : null,
     visible,
   );

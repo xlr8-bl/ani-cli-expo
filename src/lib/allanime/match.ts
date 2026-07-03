@@ -2,18 +2,19 @@ import type { AllAnimeShow, TranslationType } from './types';
 import type { MediaTitle } from '../anilist/types';
 
 /**
- * Normalize a title for comparison: lowercase, strip season/part suffixes and
- * punctuation, collapse whitespace, map common variants. AniList and AllAnime
- * name shows differently, so we token-match rather than require equality.
+ * Normalize a title for comparison. Crucially this KEEPS season/part/final and
+ * numbers — stripping them collapses every season of a show to the same string,
+ * which is what made XLR8 play a random season. Only pure format noise
+ * (tv/ova/movie…) and punctuation are removed.
  */
 export function normalizeTitle(raw: string): string {
   return raw
     .toLowerCase()
     .replace(/[’'`]/g, '')
     .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\b(season|cour|part|the final|final season|tv|ova|ona|movie)\b/g, ' ')
     .replace(/\b(\d+)(st|nd|rd|th)\b/g, '$1')
+    .replace(/\b(tv|ova|ona|movie|special|cour|the animation)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -23,9 +24,9 @@ function tokenSet(s: string): Set<string> {
 }
 
 /**
- * Similarity in [0,1]. Combines token overlap with a containment bonus so a
- * shorter official title inside a longer provider name (or vice-versa) still
- * scores highly — common between AniList english and AllAnime romaji names.
+ * Similarity in [0,1]: token overlap plus a containment bonus (only when the
+ * smaller title has ≥2 tokens, so a 1-word name can't spuriously match).
+ * Because season words are kept, "Season 2" and the base title now differ.
  */
 function tokenScore(a: string, b: string): number {
   const ta = tokenSet(a);
@@ -34,12 +35,9 @@ function tokenScore(a: string, b: string): number {
   let inter = 0;
   for (const t of ta) if (tb.has(t)) inter++;
   const jaccard = inter / Math.max(ta.size, tb.size);
-  // Containment: how much of the smaller title is covered by the larger.
-  // Only trust it when the smaller title has ≥2 tokens, so a 1-word provider
-  // name can't spuriously "contain-match" everything.
   const minSize = Math.min(ta.size, tb.size);
   const containment = minSize >= 2 ? inter / minSize : 0;
-  return Math.max(jaccard, containment * 0.9);
+  return Math.max(jaccard, containment * 0.92);
 }
 
 export interface MatchResult {
@@ -48,13 +46,15 @@ export interface MatchResult {
 }
 
 /**
- * Pick the best AllAnime show for an AniList title. Considers romaji, english
- * and native; boosts exact normalized matches and shows that actually have
- * episodes in the requested translation type. Returns null below a confidence
- * floor so the UI can offer a manual "link source" fallback.
+ * Pick the best AllAnime show for an AniList title. Season disambiguation
+ * comes from two signals: the (season-preserving) title similarity, and
+ * episode-count proximity — a season's AniList episode count should be close
+ * to the matched AllAnime show's available count, which separates e.g. Bleach
+ * (366) from Bleach: TYBW (13), or AoT S1 (25) from the Final Season (16).
  */
 export function matchShow(
   aniTitle: MediaTitle,
+  aniEpisodes: number | null | undefined,
   candidates: AllAnimeShow[],
   translationType: TranslationType,
 ): MatchResult | null {
@@ -68,13 +68,23 @@ export function matchShow(
     for (const w of wanted) {
       for (const n of names) score = Math.max(score, tokenScore(w, n));
     }
-    // Exact normalized equality is a strong signal.
+    // Exact normalized equality (season words included) is the strongest name signal.
     for (const n of names) {
-      if (wantedNorm.includes(normalizeTitle(n))) score = Math.max(score, 0.98);
+      if (wantedNorm.includes(normalizeTitle(n))) score = Math.max(score, 0.99);
     }
-    // Prefer shows that actually have episodes in the requested type.
-    const avail = show.availableEpisodes?.[translationType] ?? 0;
-    if (avail > 0) score += 0.03;
+
+    // Episode-count proximity — the decisive season disambiguator.
+    const sub = show.availableEpisodes?.[translationType] ?? 0;
+    if (aniEpisodes && sub) {
+      const diff = Math.abs(aniEpisodes - sub);
+      const ratio = Math.min(aniEpisodes, sub) / Math.max(aniEpisodes, sub);
+      if (diff === 0) score += 0.25;
+      else if (diff <= 2) score += 0.12;
+      else if (ratio >= 0.85) score += 0.05;
+      else if (ratio < 0.5) score -= 0.25; // very different length → likely wrong season
+    } else if (sub > 0) {
+      score += 0.02;
+    }
 
     if (!best || score > best.score) best = { show, score };
   }
