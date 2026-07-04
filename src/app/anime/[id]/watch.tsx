@@ -72,15 +72,25 @@ export default function Watch() {
     p.timeUpdateEventInterval = 0.5;
   });
 
-  // Load the selected source into the player.
+  // Load the selected source into the player. Switching quality on the *same*
+  // episode resumes from where you were; switching episode starts at 0.
+  const resumeRef = useRef({ episode: -1, time: 0 });
   useEffect(() => {
     if (!selected) return;
-    player.replaceAsync({
-      uri: selected.url,
-      headers: selected.headers,
-      contentType: selected.isM3u8 ? 'hls' : 'progressive',
-    }).then(() => player.play()).catch(() => {});
-  }, [selected?.url, player]);
+    const resumeAt = resumeRef.current.episode === episodeNumber ? player.currentTime : 0;
+    resumeRef.current = { episode: episodeNumber, time: 0 };
+    player
+      .replaceAsync({
+        uri: selected.url,
+        headers: selected.headers,
+        contentType: selected.isM3u8 ? 'hls' : 'progressive',
+      })
+      .then(() => {
+        if (resumeAt > 0) player.currentTime = resumeAt;
+        player.play();
+      })
+      .catch(() => {});
+  }, [selected?.url, player, episodeNumber]);
 
   // Player state.
   const [playing, setPlaying] = useState(false);
