@@ -23,6 +23,10 @@ export function PlayerControls({
   onQuality,
   onToggleTranslation,
   onFullscreen,
+  hasNext,
+  hasPrev,
+  onNext,
+  onPrev,
 }: {
   visible: boolean;
   playing: boolean;
@@ -41,6 +45,10 @@ export function PlayerControls({
   onQuality: () => void;
   onToggleTranslation: () => void;
   onFullscreen: () => void;
+  hasNext?: boolean;
+  hasPrev?: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
 }) {
   const barWidth = useRef(0);
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
@@ -104,6 +112,14 @@ export function PlayerControls({
 
       {/* Center transport */}
       <View style={styles.center}>
+        <Pressable
+          onPress={onPrev}
+          disabled={!hasPrev}
+          hitSlop={10}
+          style={[styles.epBtn, !hasPrev && styles.epBtnOff]}
+        >
+          <Ionicons name="play-skip-back" size={22} color="#FFF" />
+        </Pressable>
         <Pressable onPress={() => onSeekBy(-10)} hitSlop={10} style={styles.seekBtn}>
           <Ionicons name="play-back" size={26} color="#FFF" />
           <Text variant="eyebrow" color="#FFF" style={styles.seekLabel}>
@@ -122,6 +138,14 @@ export function PlayerControls({
           <Text variant="eyebrow" color="#FFF" style={styles.seekLabel}>
             10
           </Text>
+        </Pressable>
+        <Pressable
+          onPress={onNext}
+          disabled={!hasNext}
+          hitSlop={10}
+          style={[styles.epBtn, !hasNext && styles.epBtnOff]}
+        >
+          <Ionicons name="play-skip-forward" size={22} color="#FFF" />
         </Pressable>
       </View>
 
@@ -211,8 +235,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 42,
+    gap: 30,
   },
+  epBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  epBtnOff: { opacity: 0.25 },
   seekBtn: { alignItems: 'center', justifyContent: 'center' },
   seekLabel: { fontSize: 9, marginTop: -2 },
   playBtn: {

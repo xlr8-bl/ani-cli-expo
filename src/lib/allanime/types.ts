@@ -27,6 +27,12 @@ export interface ResolvedSource {
   /** m3u8 vs mp4. */
   isM3u8: boolean;
   provider: string;
+  /** Stream bitrate in bits/sec, when known (from an HLS variant). */
+  bandwidth?: number;
+  /** Exact stream size in bytes, when known (a direct file's content-length). */
+  sizeBytes?: number;
+  /** True for the adaptive HLS master — downshifts automatically on slow networks. */
+  adaptive?: boolean;
   /** Optional subtitle track url (first/default). */
   subtitle?: string | null;
   /** All soft subtitle tracks, when the provider supplies them. */

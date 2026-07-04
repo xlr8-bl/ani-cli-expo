@@ -190,10 +190,11 @@ async function expandHlsVariants(source: ResolvedSource): Promise<ResolvedSource
     const text = await res.text();
     if (!text.includes('#EXT-X-STREAM-INF')) return [source]; // media playlist, single stream
     const lines = text.split(/\r?\n/);
-    const variants: { height: number; url: string }[] = [];
+    const variants: { height: number; bandwidth: number; url: string }[] = [];
     for (let i = 0; i < lines.length; i++) {
       if (!/^#EXT-X-STREAM-INF/i.test(lines[i])) continue;
       const res2 = /RESOLUTION=\d+x(\d+)/i.exec(lines[i]);
+      const bw = /BANDWIDTH=(\d+)/i.exec(lines[i]);
       let uri = '';
       for (let j = i + 1; j < lines.length; j++) {
         const l = lines[j].trim();
@@ -204,19 +205,34 @@ async function expandHlsVariants(source: ResolvedSource): Promise<ResolvedSource
       }
       if (!uri) continue;
       try {
-        variants.push({ height: res2 ? Number(res2[1]) : 0, url: new URL(uri, source.url).toString() });
+        variants.push({
+          height: res2 ? Number(res2[1]) : 0,
+          bandwidth: bw ? Number(bw[1]) : 0,
+          url: new URL(uri, source.url).toString(),
+        });
       } catch {
         /* skip malformed variant URI */
       }
     }
     if (variants.length === 0) return [source];
-    // Master first (adaptive Auto), then distinct heights high→low.
-    const out: ResolvedSource[] = [{ ...source, quality: 0, qualityLabel: 'Auto' }];
+    // Master first (adaptive Auto — the slow-network friendly pick), then
+    // distinct heights high→low, each carrying its real bitrate.
+    const peak = Math.max(...variants.map((v) => v.bandwidth), 0);
+    const out: ResolvedSource[] = [
+      { ...source, quality: 0, qualityLabel: 'Auto', adaptive: true, bandwidth: peak || undefined },
+    ];
     const seen = new Set<number>();
     for (const v of variants.sort((a, b) => b.height - a.height)) {
       if (seen.has(v.height)) continue;
       seen.add(v.height);
-      out.push({ ...source, url: v.url, quality: v.height, qualityLabel: qualityLabel(v.height) });
+      out.push({
+        ...source,
+        url: v.url,
+        quality: v.height,
+        qualityLabel: qualityLabel(v.height),
+        bandwidth: v.bandwidth || undefined,
+        adaptive: false,
+      });
     }
     return out;
   } catch {
@@ -314,7 +330,34 @@ export async function resolveEpisodeSources(
     await Promise.allSettled(results.map(expandHlsVariants))
   ).flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 
-  return dedupeAndSort(expanded);
+  const sorted = dedupeAndSort(expanded);
+  await attachDirectSizes(sorted);
+  return sorted;
+}
+
+/**
+ * Fill in the exact byte size of direct (non-HLS) streams from their
+ * content-length, so the quality menu can show real "size to stream". A single
+ * ranged request per file; best-effort and bounded, so a slow probe never
+ * blocks playback. HLS variants advertise a bitrate instead (handled in the UI).
+ */
+async function attachDirectSizes(sources: ResolvedSource[]): Promise<void> {
+  const targets = sources.filter((s) => !s.isM3u8).slice(0, 3);
+  await Promise.allSettled(
+    targets.map(async (s) => {
+      try {
+        const res = await fetchWithTimeout(
+          s.url,
+          { headers: { ...s.headers, Range: 'bytes=0-0' } },
+          4000,
+        );
+        const total = Number((res.headers.get('content-range') ?? '').split('/')[1]);
+        if (Number.isFinite(total) && total > 0) s.sizeBytes = total;
+      } catch {
+        /* size stays unknown — the menu just omits it */
+      }
+    }),
+  );
 }
 
 /**

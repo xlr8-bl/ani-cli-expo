@@ -22,6 +22,7 @@ export function EpisodeCard({
   filler,
   recap,
   isNew,
+  nowPlaying,
   onPress,
   onDownload,
 }: {
@@ -38,6 +39,8 @@ export function EpisodeCard({
   filler?: boolean;
   recap?: boolean;
   isNew?: boolean;
+  /** The episode currently playing — gets an accent marker + tinted title. */
+  nowPlaying?: boolean;
   onPress?: () => void;
   onDownload?: () => void;
 }) {
@@ -55,8 +58,16 @@ export function EpisodeCard({
           transition={200}
         />
         {/* floating play affordance */}
-        <View style={styles.playOverlay} pointerEvents="none">
-          <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
+        <View
+          style={[styles.playOverlay, nowPlaying && styles.playOverlayActive]}
+          pointerEvents="none"
+        >
+          <Ionicons
+            name={nowPlaying ? 'musical-notes' : 'play'}
+            size={14}
+            color="#FFFFFF"
+            style={{ marginLeft: nowPlaying ? 0 : 2 }}
+          />
         </View>
         {/* episode number chip */}
         <View style={styles.epChip}>
@@ -82,10 +93,21 @@ export function EpisodeCard({
       </View>
 
       <View style={styles.textCol}>
-        <Text variant="label" numberOfLines={2} style={styles.title}>
+        <Text
+          variant="label"
+          numberOfLines={2}
+          style={styles.title}
+          color={nowPlaying ? colors.accent : undefined}
+        >
           {title || `Episode ${number}`}
         </Text>
-        {metaLine ? (
+        {nowPlaying ? (
+          <View style={styles.metaRow}>
+            <Text variant="meta" color={colors.accent}>
+              Now playing
+            </Text>
+          </View>
+        ) : metaLine ? (
           <View style={styles.metaRow}>
             <Text variant="meta">{metaLine}</Text>
           </View>
@@ -149,6 +171,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.35)',
+  },
+  playOverlayActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   epChip: {
     position: 'absolute',

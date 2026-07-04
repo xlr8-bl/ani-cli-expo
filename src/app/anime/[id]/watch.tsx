@@ -70,6 +70,14 @@ export default function Watch() {
 
   const player = useVideoPlayer(null, (p) => {
     p.timeUpdateEventInterval = 0.5;
+    // Buffer deep so playback rides out slow/spotty connections, but start
+    // quickly once a couple of seconds are ready.
+    p.bufferOptions = {
+      preferredForwardBufferDuration: 30,
+      minBufferForPlayback: 2,
+      waitsToMinimizeStalling: true,
+      prioritizeTimeOverSizeThreshold: true,
+    };
   });
 
   // Load the selected source into the player. Switching quality on the *same*
@@ -147,6 +155,34 @@ export default function Watch() {
     setBuffering(true);
     setFailed(false);
   };
+
+  // Episode-to-episode navigation for effortless bingeing.
+  const episodeIndex = episodes.findIndex((e) => e.number === episodeNumber);
+  const hasNext = episodeIndex >= 0 && episodeIndex < episodes.length - 1;
+  const hasPrev = episodeIndex > 0;
+  const goNext = () => {
+    if (hasNext) playEpisode(episodes[episodeIndex + 1].number);
+  };
+  const goPrev = () => {
+    if (hasPrev) playEpisode(episodes[episodeIndex - 1].number);
+  };
+
+  // Auto-advance to the next episode when one finishes.
+  useEventListener(player, 'playToEnd', () => {
+    if (hasNext) goNext();
+  });
+
+  // Keep the episode list scrolled to whatever's playing.
+  const listRef = useRef<FlatList>(null);
+  useEffect(() => {
+    if (episodeIndex < 0) return;
+    const t = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index: episodeIndex, viewPosition: 0.3, animated: true });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [episodeIndex]);
+
+  const durationSec = (media?.duration ?? 24) * 60;
 
   return (
     <View style={styles.root}>
@@ -229,6 +265,10 @@ export default function Watch() {
               onQuality={() => setMenu('quality')}
               onToggleTranslation={() => setTranslation((t) => (t === 'sub' ? 'dub' : 'sub'))}
               onFullscreen={() => videoRef.current?.enterFullscreen()}
+              hasNext={hasNext}
+              hasPrev={hasPrev}
+              onNext={goNext}
+              onPrev={goPrev}
             />
           )}
         </Pressable>
@@ -236,8 +276,12 @@ export default function Watch() {
 
       {/* Episodes below the player */}
       <FlatList
+        ref={listRef}
         data={episodes}
         keyExtractor={(e) => String(e.number)}
+        onScrollToIndexFailed={({ index }) => {
+          setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.3, animated: true }), 400);
+        }}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: insets.bottom + 20 }}
         ListHeaderComponent={
           <View style={styles.listHeader}>
@@ -266,7 +310,8 @@ export default function Watch() {
                 airedAt={jikan?.aired ?? zip?.airDate}
                 filler={jikan?.filler}
                 recap={jikan?.recap}
-                isNew={item.number === episodeNumber}
+                isNew={item.isNew}
+                nowPlaying={item.number === episodeNumber}
                 onPress={() => playEpisode(item.number)}
               />
             </View>
@@ -281,28 +326,56 @@ export default function Watch() {
             <Text variant="heading" style={styles.menuTitle}>
               Quality
             </Text>
-            {resolved.map((s, i) => (
-              <Pressable
-                key={`${s.url}-${i}`}
-                style={styles.menuRow}
-                onPress={() => {
-                  setQualityIndex(i);
-                  setMenu(null);
-                }}
-              >
-                <Text variant="label" color={i === qualityIndex ? colors.accent : colors.text}>
-                  {s.qualityLabel} · {s.provider}
-                </Text>
-                {i === qualityIndex && (
-                  <Ionicons name="checkmark" size={18} color={colors.accent} />
-                )}
-              </Pressable>
-            ))}
+            {resolved.map((s, i) => {
+              const size = streamSizeLabel(s, durationSec);
+              return (
+                <Pressable
+                  key={`${s.url}-${i}`}
+                  style={styles.menuRow}
+                  onPress={() => {
+                    setQualityIndex(i);
+                    setMenu(null);
+                  }}
+                >
+                  <View>
+                    <Text
+                      variant="label"
+                      color={i === qualityIndex ? colors.accent : colors.text}
+                    >
+                      {s.qualityLabel}
+                      {s.adaptive ? '  ·  Adaptive' : ''}
+                    </Text>
+                    {size && (
+                      <Text variant="meta" color={colors.textMuted} style={{ marginTop: 2 }}>
+                        {size}
+                      </Text>
+                    )}
+                  </View>
+                  {i === qualityIndex && (
+                    <Ionicons name="checkmark" size={18} color={colors.accent} />
+                  )}
+                </Pressable>
+              );
+            })}
           </View>
         </Pressable>
       )}
     </View>
   );
+}
+
+function formatBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;
+  return `${Math.round(n / 1024 ** 2)} MB`;
+}
+
+/** "Size to stream" for a source: exact for direct files, estimated from bitrate for HLS. */
+function streamSizeLabel(s: ResolvedSource, durationSec: number): string | null {
+  if (s.sizeBytes) return formatBytes(s.sizeBytes);
+  if (s.adaptive) return 'Adapts to your connection';
+  if (s.bandwidth && durationSec) return `≈ ${formatBytes((s.bandwidth / 8) * durationSec)}`;
+  if (s.bandwidth) return `${(s.bandwidth / 1_000_000).toFixed(1)} Mbps`;
+  return null;
 }
 
 const styles = StyleSheet.create({
